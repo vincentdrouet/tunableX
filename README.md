@@ -1,4 +1,4 @@
-# tunablex
+# tunableX
 
 Function-first **tunable parameters** for Python apps — with **automatic JSON & JSON Schema**, **per-executable** composition (via tags) or **dynamic** composition (via call-graph **tracing**), and **runtime auto-injection**.
 
