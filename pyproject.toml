@@ -1,0 +1,20 @@
+[build-system]
+requires = ["hatchling>=1.18"]
+build-backend = "hatchling.build"
+
+[project]
+name = "tunablex"
+version = "0.0.0"
+description = "Function-first tunables with auto JSON/JSON Schema, app-or-trace composition, and runtime auto-injection."
+readme = "README.md"
+requires-python = ">=3.10"
+license = {text = "MIT"}
+authors = [{name="Jacques PAPPER"}]
+dependencies = ["pydantic>=2.4"]
+[project.optional-dependencies]
+jsonargparse = ["jsonargparse>=4.26"]
+yaml = ["PyYAML>=6.0.1"]
+[project.urls]
+Homepage = "https://example.com/tunablex"
+[project.scripts]
+tunablex = "tunablex.cli:main"
