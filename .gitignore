@@ -9,3 +9,4 @@ build/
 *.log
 .venv/
 .env
+uv.lock

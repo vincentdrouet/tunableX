@@ -3,18 +3,32 @@ requires = ["hatchling>=1.18"]
 build-backend = "hatchling.build"
 
 [project]
-name = "tunablex"
-version = "0.0.0"
-description = "Function-first tunables with auto JSON/JSON Schema, app-or-trace composition, and runtime auto-injection."
+name = "tunablex"                # PyPI name (normalized)
+version = "0.0.0"                # bump before each release
+description = "Function-first tunables with auto JSON/YAML/TOML config & schema, per-executable composition (tags or trace), and runtime auto-injection."
 readme = "README.md"
 requires-python = ">=3.10"
-license = {text = "MIT"}
-authors = [{name="Jacques PAPPER"}]
+license = { text = "MIT" }
+authors = [{ name = "Jacques Papper" }]
 dependencies = ["pydantic>=2.4"]
-[project.optional-dependencies]
-jsonargparse = ["jsonargparse>=4.26"]
-yaml = ["PyYAML>=6.0.1"]
+optional-dependencies = { jsonargparse = ["jsonargparse>=4.26"], yaml = ["PyYAML>=6.0.1"] }
+classifiers = [
+  "Development Status :: 3 - Alpha",
+  "License :: OSI Approved :: MIT License",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3 :: Only",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Typing :: Typed",
+]
 [project.urls]
-Homepage = "https://example.com/tunablex"
-[project.scripts]
-tunablex = "tunablex.cli:main"
+Homepage = "https://github.com/jackpap/tunableX"
+Issues = "https://github.com/jackpap/tunableX/issues"
+
+# Tell Hatch where your package lives (src/ layout)
+[tool.hatch.build.targets.wheel]
+packages = ["src/tunablex"]
+
+[tool.hatch.build.targets.sdist]
+include = ["src", "README.md", "LICENSE", "pyproject.toml"]
