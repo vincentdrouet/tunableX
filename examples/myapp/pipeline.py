@@ -13,9 +13,11 @@ from tunablex import tunable
 )
 def preprocess(
     path: str,
-    dropna: bool = True,
-    normalize: Literal["zscore", "minmax", "none"] = "zscore",
-    clip_outliers: float = Field(3.0, ge=0, le=10),
+    dropna: bool = Field(True, description="Drop rows with missing values"),
+    normalize: Literal["zscore", "minmax", "none"] = Field(
+        "zscore", description="Normalization strategy"
+    ),
+    clip_outliers: float = Field(3.0, ge=0, le=10, description="Clip values beyond k standard deviations"),
 ):
     print("preprocess", dropna, normalize, clip_outliers, "on", path)
     return "clean"
@@ -23,7 +25,8 @@ def preprocess(
 
 @tunable("hidden_units", "dropout", namespace="model", apps=("train",))
 def build_model(
-    hidden_units: int = Field(128, ge=1), dropout: float = Field(0.2, ge=0.0, le=1.0)
+    hidden_units: int = Field(128, ge=1, description="Number of hidden units"),
+    dropout: float = Field(0.2, ge=0.0, le=1.0, description="Dropout probability"),
 ):
     print("build_model", hidden_units, dropout)
     return "model"
@@ -31,15 +34,18 @@ def build_model(
 
 @tunable("epochs", "batch_size", "optimizer", namespace="train", apps=("train",))
 def train(
-    epochs: int = Field(10, ge=1),
-    batch_size: int = 32,
-    optimizer: Literal["adam", "sgd"] = "adam",
+    epochs: int = Field(10, ge=1, description="Number of training epochs"),
+    batch_size: int = Field(32, ge=1, description="Training batch size"),
+    optimizer: Literal["adam", "sgd"] = Field("adam", description="Optimizer choice"),
 ):
     print("train", epochs, batch_size, optimizer)
 
 
 @tunable("port", "workers", namespace="serve", apps=("serve",))
-def serve_api(port: int = Field(8080, ge=1, le=65535), workers: int = Field(2, ge=1)):
+def serve_api(
+    port: int = Field(8080, ge=1, le=65535, description="HTTP port for serving API"),
+    workers: int = Field(2, ge=1, description="Number of worker processes"),
+):
     print("serve_api", port, workers)
 
 

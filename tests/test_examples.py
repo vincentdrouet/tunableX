@@ -58,7 +58,7 @@ def test_jsonargparse_app_file_plus_overrides(tmp_path, run_example):
 def test_jsonargparse_trace_defaults_cli(run_example):
     code, out, err = run_example(
         "examples/jsonargparse_trace/train_jsonarg_trace.py",
-        ["--preprocess.dropna", "no", "--train.batch_size", "64"],
+        ["--no-preprocess.dropna", "--train.batch_size", "64"],
     )
     assert code == 0, err
     assert "train " in out  # epochs default, batch overridden

@@ -2,17 +2,10 @@ from __future__ import annotations
 from typing import get_origin, get_args, Literal
 from pydantic import BaseModel
 from jsonargparse import ArgumentParser  # works with jsonargparse or argparse-compatible
+from argparse import BooleanOptionalAction
 from .runtime import make_app_config_for, make_app_config_for_entry
 from .io import load_structured_config
 
-# Accepts yes/no/true/false/1/0/on/off/y/n (case-insensitive)
-def _parse_bool(value: str) -> bool:
-    v = str(value).strip().lower()
-    if v in {"1","true","t","yes","y","on"}:
-        return True
-    if v in {"0","false","f","no","n","off"}:
-        return False
-    raise ValueError(f"invalid boolean: {value!r} (expected yes/no/true/false/1/0)")
 
 def add_flags_from_model(parser: ArgumentParser, AppConfig) -> None:
     """Create flags like --section.field for each tunable in the AppConfig model."""
@@ -23,16 +16,18 @@ def add_flags_from_model(parser: ArgumentParser, AppConfig) -> None:
         grp = parser.add_argument_group(section_name)
         for name, fld in section_model.model_fields.items():
             ann = fld.annotation
+            help_text = getattr(fld, "description", None)
             flag = f"--{section_name}.{name}"
             dest = f"TX__{section_name}__{name}"
             if get_origin(ann) is Literal:
-                grp.add_argument(flag, choices=[*get_args(ann)], dest=dest)
+                grp.add_argument(flag, choices=[*get_args(ann)], dest=dest, help=help_text)
             elif ann is bool:
-                grp.add_argument(flag, type=_parse_bool, metavar="{yes|no}", dest=dest)
+                # Use --flag/--no-flag style and default=None so config files can provide the default
+                grp.add_argument(flag, action=BooleanOptionalAction, dest=dest, help=help_text, default=None)
             elif ann in (int, float, str):
-                grp.add_argument(flag, type=ann, dest=dest)
+                grp.add_argument(flag, type=ann, dest=dest, help=help_text)
             else:
-                grp.add_argument(flag, type=str, dest=dest)  # fallback; validated later
+                grp.add_argument(flag, type=str, dest=dest, help=help_text)  # fallback; validated later
 
 def add_flags_by_app(parser: ArgumentParser, app: str) -> None:
     AppConfig = make_app_config_for(app)
