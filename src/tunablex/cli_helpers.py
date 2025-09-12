@@ -3,6 +3,7 @@ from typing import get_origin, get_args, Literal
 from pydantic import BaseModel
 from jsonargparse import ArgumentParser  # works with jsonargparse or argparse-compatible
 from argparse import BooleanOptionalAction, SUPPRESS
+from pathlib import Path
 from .runtime import make_app_config_for, make_app_config_for_entry
 from .io import load_structured_config
 
@@ -13,9 +14,11 @@ def _help_with_default(fld) -> str | None:
         return f"{desc} (required)" if desc else "(required)"
     # field has a default
     default_val = fld.default
-    # Show booleans as true/false lower
+    # Normalize default representation
     if isinstance(default_val, bool):
         default_str = str(default_val).lower()
+    elif isinstance(default_val, Path):
+        default_str = str(default_val)
     else:
         default_str = repr(default_val)
     if desc:
@@ -42,10 +45,11 @@ def add_flags_from_model(parser: ArgumentParser, AppConfig) -> None:
             if get_origin(ann) is Literal:
                 grp.add_argument(flag, choices=[*get_args(ann)], dest=dest, help=help_text, default=SUPPRESS)
             elif ann is bool:
-                # --flag / --no-flag; suppress parser default so we don't show None and rely on presence
                 grp.add_argument(flag, action=BooleanOptionalAction, dest=dest, help=help_text, default=SUPPRESS)
             elif ann in (int, float, str):
                 grp.add_argument(flag, type=ann, dest=dest, help=help_text, default=SUPPRESS)
+            elif ann is Path:
+                grp.add_argument(flag, type=str, dest=dest, help=help_text, default=SUPPRESS)
             else:
                 grp.add_argument(flag, type=str, dest=dest, help=help_text, default=SUPPRESS)  # fallback; validated later
 
@@ -80,7 +84,7 @@ def collect_overrides(args, AppConfig) -> dict:
     return out
 
 def build_cfg_from_file_and_args(AppConfig, args, config_attr: str = "config") -> dict:
-    cfg = AppConfig().model_dump()
+    cfg = AppConfig().model_dump(mode="json")
     path = getattr(args, config_attr, None)
     if path:
         cfg = deep_update(cfg, load_structured_config(path))
