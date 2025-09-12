@@ -61,6 +61,14 @@ def add_flags_by_entry(parser: ArgumentParser, entrypoint, *args, **kwargs) -> N
     AppConfig = make_app_config_for_entry(entrypoint, *args, **kwargs)
     add_flags_from_model(parser, AppConfig)
 
+# New helper: trace an entrypoint to discover all tunables it (transitively) uses and add flags.
+# Returns the generated AppConfig so callers can avoid a second trace.
+
+def add_flags_by_trace(parser: ArgumentParser, entrypoint, *args, **kwargs):
+    AppConfig = make_app_config_for_entry(entrypoint, *args, **kwargs)
+    add_flags_from_model(parser, AppConfig)
+    return AppConfig
+
 def deep_update(base: dict, extra: dict) -> dict:
     for k, v in (extra or {}).items():
         if isinstance(v, dict) and isinstance(base.get(k), dict):
