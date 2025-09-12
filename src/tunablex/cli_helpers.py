@@ -2,13 +2,33 @@ from __future__ import annotations
 from typing import get_origin, get_args, Literal
 from pydantic import BaseModel
 from jsonargparse import ArgumentParser  # works with jsonargparse or argparse-compatible
-from argparse import BooleanOptionalAction
+from argparse import BooleanOptionalAction, SUPPRESS
 from .runtime import make_app_config_for, make_app_config_for_entry
 from .io import load_structured_config
 
 
+def _help_with_default(fld) -> str | None:
+    desc = getattr(fld, "description", None)
+    if fld.is_required():
+        return f"{desc} (required)" if desc else "(required)"
+    # field has a default
+    default_val = fld.default
+    # Show booleans as true/false lower
+    if isinstance(default_val, bool):
+        default_str = str(default_val).lower()
+    else:
+        default_str = repr(default_val)
+    if desc:
+        return f"{desc} (default: {default_str})"
+    return f"(default: {default_str})"
+
+
 def add_flags_from_model(parser: ArgumentParser, AppConfig) -> None:
-    """Create flags like --section.field for each tunable in the AppConfig model."""
+    """Create flags like --section.field for each tunable in the AppConfig model.
+
+    Parser defaults are SUPPRESS so we can detect presence via hasattr(args, dest).
+    Actual defaults still come from the Pydantic model instance when building the config.
+    """
     for section_name, section_field in AppConfig.model_fields.items():
         section_model = section_field.annotation
         if not (isinstance(section_model, type) and issubclass(section_model, BaseModel)):
@@ -16,18 +36,18 @@ def add_flags_from_model(parser: ArgumentParser, AppConfig) -> None:
         grp = parser.add_argument_group(section_name)
         for name, fld in section_model.model_fields.items():
             ann = fld.annotation
-            help_text = getattr(fld, "description", None)
+            help_text = _help_with_default(fld)
             flag = f"--{section_name}.{name}"
             dest = f"TX__{section_name}__{name}"
             if get_origin(ann) is Literal:
-                grp.add_argument(flag, choices=[*get_args(ann)], dest=dest, help=help_text)
+                grp.add_argument(flag, choices=[*get_args(ann)], dest=dest, help=help_text, default=SUPPRESS)
             elif ann is bool:
-                # Use --flag/--no-flag style and default=None so config files can provide the default
-                grp.add_argument(flag, action=BooleanOptionalAction, dest=dest, help=help_text, default=None)
+                # --flag / --no-flag; suppress parser default so we don't show None and rely on presence
+                grp.add_argument(flag, action=BooleanOptionalAction, dest=dest, help=help_text, default=SUPPRESS)
             elif ann in (int, float, str):
-                grp.add_argument(flag, type=ann, dest=dest, help=help_text)
+                grp.add_argument(flag, type=ann, dest=dest, help=help_text, default=SUPPRESS)
             else:
-                grp.add_argument(flag, type=str, dest=dest, help=help_text)  # fallback; validated later
+                grp.add_argument(flag, type=str, dest=dest, help=help_text, default=SUPPRESS)  # fallback; validated later
 
 def add_flags_by_app(parser: ArgumentParser, app: str) -> None:
     AppConfig = make_app_config_for(app)
@@ -53,7 +73,7 @@ def collect_overrides(args, AppConfig) -> dict:
             continue
         for name in section_model.model_fields.keys():
             dest = f"TX__{section_name}__{name}"
-            if hasattr(args, dest):
+            if hasattr(args, dest):  # present only if supplied (SUPPRESS otherwise)
                 val = getattr(args, dest)
                 if val is not None:
                     out.setdefault(section_name, {})[name] = val
