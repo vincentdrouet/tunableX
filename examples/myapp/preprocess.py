@@ -1,0 +1,26 @@
+from __future__ import annotations
+
+from typing import Literal, Optional
+
+from pydantic import Field
+
+from tunablex import tunable
+
+
+@tunable(
+    "dropna",
+    "normalize",
+    "clip_outliers",
+    namespace="preprocess",
+    apps=("train", "serve"),
+)
+def preprocess(
+    path: str,
+    dropna: bool = Field(True, description="Drop rows with missing values"),
+    normalize: Literal["zscore", "minmax", "none"] = Field(
+        "zscore", description="Normalization strategy"
+    ),
+    clip_outliers: float = Field(3.0, ge=0, le=10, description="Clip values beyond k standard deviations"),
+):
+    print("preprocess", dropna, normalize, clip_outliers, "on", path)
+    return "clean"
