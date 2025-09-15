@@ -1,15 +1,14 @@
 from jsonargparse import ArgumentParser
 from tunablex import use_config
-from tunablex.cli_helpers import add_flags_by_trace, build_cfg_from_file_and_args
+from tunablex.cli_helpers import add_flags_by_app, build_cfg_from_file_and_args
 import examples.myapp.pipeline as pipeline  # registers @tunable
 
 if __name__ == "__main__":
-    # Demonstrate using trace-based flag generation even for an app-tagged workflow.
-    # This avoids needing to know the app tag; trace discovers all tunables invoked.
+    # Use app-tag based flag generation since we know we're the 'train' app.
     parser = ArgumentParser(prog="train_jsonarg_app")
     parser.add_argument("--config", help="Path to train_config.json (optional)")
 
-    AppConfig = add_flags_by_trace(parser, pipeline.train_main)
+    AppConfig = add_flags_by_app(parser, app="train")
 
     args = parser.parse_args()
 

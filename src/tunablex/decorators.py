@@ -37,7 +37,7 @@ def tunable(*include: str, namespace: str|None=None, mode: Literal["include","ex
             default = p.default if p.default is not inspect._empty else ...
             fields[name] = (ann, default)
 
-        ns = namespace or f"{fn.__module__}.{fn.__name__}"
+        ns = namespace or "main"  # default to 'main' if no namespace provided
         model_name = f"{ns.title().replace('.','').replace('_','')}Config"
         Model = create_model(model_name, **fields)  # type: ignore
 

@@ -53,9 +53,11 @@ def add_flags_from_model(parser: ArgumentParser, AppConfig) -> None:
             else:
                 grp.add_argument(flag, type=str, dest=dest, help=help_text, default=SUPPRESS)  # fallback; validated later
 
-def add_flags_by_app(parser: ArgumentParser, app: str) -> None:
+def add_flags_by_app(parser: ArgumentParser, app: str):
+    """Add flags for all tunables tagged with the given app and return the AppConfig model."""
     AppConfig = make_app_config_for(app)
     add_flags_from_model(parser, AppConfig)
+    return AppConfig
 
 def add_flags_by_entry(parser: ArgumentParser, entrypoint, *args, **kwargs) -> None:
     AppConfig = make_app_config_for_entry(entrypoint, *args, **kwargs)
