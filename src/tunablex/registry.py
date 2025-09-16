@@ -62,10 +62,7 @@ class TunableRegistry:
             if name in merged_fields:
                 prev_ann, _prev_def = merged_fields[name]
                 if prev_ann != ann:
-                    msg = (
-                        f"Conflicting field '{name}' in namespace '{entry.namespace}': "
-                        f"{prev_ann} vs {ann}"
-                    )
+                    msg = f"Conflicting field '{name}' in namespace '{entry.namespace}': {prev_ann} vs {ann}"
                     raise ValueError(msg)
                 continue  # keep first definition
             merged_fields[name] = (ann, fld)
@@ -87,7 +84,7 @@ class TunableRegistry:
         want = set(apps)
         return [ns for ns, e in self.by_namespace.items() if e.apps & want]
 
-    def build_config(self, namespaces: Iterable[str]):
+    def build_config(self, namespaces: Iterable[str]) -> BaseModel:
         """Create a top-level AppConfig model from selected namespaces.
 
         Sections with required fields are emitted as Optional[SectionModel] with default None

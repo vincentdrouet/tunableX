@@ -4,9 +4,10 @@ import json
 from pathlib import Path
 from typing import TYPE_CHECKING
 
+from pydantic import BaseModel
 from pydantic import ValidationError
 
-from .context import trace_tunables  # noqa: F401
+from .context import trace_tunables
 from .context import use_config  # noqa: F401
 from .io import load_structured_config
 from .registry import REGISTRY
@@ -46,7 +47,7 @@ def write_schema(prefix: str, schema: dict, defaults: dict | None = None):
         Path(f"{prefix}.json").write_text(json.dumps(defaults, indent=2, default=str))
 
 
-def make_app_config_for(app: str):
+def make_app_config_for(app: str) -> BaseModel:
     namespaces = REGISTRY.namespaces_for_apps([app])
     return REGISTRY.build_config(namespaces)
 

@@ -20,30 +20,36 @@ if TYPE_CHECKING:
     from collections.abc import Iterable
 
 
-def tunable(*include: str, namespace: str | None = None, mode: Literal["include", "exclude"] = "include",
-            exclude: Iterable[str] | None = None, apps: Iterable[str] = ()):
+def tunable(
+    *include: str,
+    namespace: str | None = None,
+    mode: Literal["include", "exclude"] = "include",
+    exclude: Iterable[str] | None = None,
+    apps: Iterable[str] = (),
+):
     """Mark a function's selected parameters as user-tunable.
+
     - include: names to include. If empty, include all params that have defaults
                (unless mode='exclude' with an explicit exclude list).
     - namespace: JSON section name; defaults to 'module.function'.
     - apps: optional tags to group functions per executable/app.
     """
-    include_set = set(include) if include else None
+    include_set = set(include or ())
     exclude_set = set(exclude or ())
 
     def decorator(fn):
         sig = inspect.signature(fn)
         hints = get_type_hints(fn)
-        fields: dict[str, tuple[type[Any], Any]] = {}
+        fields = {}
         for name, p in sig.parameters.items():
             if p.kind in (p.VAR_POSITIONAL, p.VAR_KEYWORD):
                 continue
-            if include_set is not None:
+            if include_set:
                 selected = name in include_set
             elif mode == "exclude" and exclude_set:
                 selected = (p.default is not inspect._empty) and (name not in exclude_set)
             else:
-                selected = (p.default is not inspect._empty)
+                selected = p.default is not inspect._empty
             if not selected:
                 continue
             ann = hints.get(name, Any)

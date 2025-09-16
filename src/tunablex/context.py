@@ -2,8 +2,7 @@ from __future__ import annotations
 
 import contextvars
 
-# Trace context to collect namespaces touched during a dry-run
-_active_trace = contextvars.ContextVar("tunablex_trace", default=None)
+from pydantic import BaseModel
 
 
 class trace_tunables:
@@ -19,10 +18,6 @@ class trace_tunables:
         _active_trace.reset(self._tok)
 
 
-# Active config context used at runtime for auto-injection
-_active_cfg = contextvars.ContextVar("tunablex_active_cfg", default=None)
-
-
 class use_config:
     def __init__(self, cfg):
         self.cfg = cfg
@@ -33,3 +28,10 @@ class use_config:
 
     def __exit__(self, et, e, tb):
         _active_cfg.reset(self._tok)
+
+
+# Trace context to collect namespaces touched during a dry-run
+_active_trace = contextvars.ContextVar[trace_tunables]("tunablex_trace", default=None)
+
+# Active config context used at runtime for auto-injection
+_active_cfg = contextvars.ContextVar[BaseModel]("tunablex_active_cfg", default=None)
