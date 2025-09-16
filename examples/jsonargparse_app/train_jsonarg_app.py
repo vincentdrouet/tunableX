@@ -1,4 +1,4 @@
-import examples.myapp.pipeline as pipeline  # registers @tunable
+import examples.myapp.pipeline as pipeline
 from jsonargparse import ArgumentParser
 
 from tunablex import use_config
