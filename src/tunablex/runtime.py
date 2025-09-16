@@ -1,11 +1,19 @@
 from __future__ import annotations
-from typing import Callable
+
 import json
 from pathlib import Path
+from typing import TYPE_CHECKING
+
 from pydantic import ValidationError
+
+from .context import trace_tunables  # noqa: F401
+from .context import use_config  # noqa: F401
 from .io import load_structured_config
 from .registry import REGISTRY
-from .context import use_config, trace_tunables  # noqa: F401
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
+
 
 def schema_for_apps(*apps: str) -> dict:
     AppConfig = REGISTRY.build_config(REGISTRY.namespaces_for_apps(apps))
@@ -37,9 +45,11 @@ def write_schema(prefix: str, schema: dict, defaults: dict | None = None):
     if defaults is not None:
         Path(f"{prefix}.json").write_text(json.dumps(defaults, indent=2, default=str))
 
+
 def make_app_config_for(app: str):
     namespaces = REGISTRY.namespaces_for_apps([app])
     return REGISTRY.build_config(namespaces)
+
 
 def load_app_config(app: str, json_path: str | Path):
     AppConfig = make_app_config_for(app)
@@ -47,7 +57,9 @@ def load_app_config(app: str, json_path: str | Path):
     try:
         return AppConfig.model_validate(data)
     except ValidationError as e:
-        raise SystemExit(f"Invalid config for app '{app}':\n{e}") from None
+        msg = f"Invalid config for app '{app}':\n{e}"
+        raise SystemExit(msg) from None
+
 
 # Tracing-based (no app)
 def make_app_config_for_entry(entrypoint: Callable, *args, **kwargs):
@@ -62,4 +74,5 @@ def load_config_for_entry(entrypoint: Callable, json_path: str | Path, *args, **
     try:
         return AppConfig.model_validate(data)
     except ValidationError as e:
-        raise SystemExit(f"Invalid config for traced entrypoint:\n{e}") from None
+        msg = f"Invalid config for traced entrypoint:\n{e}"
+        raise SystemExit(msg) from None

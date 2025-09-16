@@ -4,6 +4,7 @@ import pytest
 # and that the formatting we expect ("(default: ...)") is present. These complement
 # existing override tests to ensure we did not regress CLI behavior.
 
+
 @pytest.mark.skipif(pytest.importorskip("jsonargparse") is None, reason="jsonargparse not installed")
 def test_jsonargparse_app_help_includes_defaults(run_example):
     code, out, err = run_example(
@@ -20,6 +21,7 @@ def test_jsonargparse_app_help_includes_defaults(run_example):
     assert "Number of training epochs" in out and "(default: 10)" in out
     assert "Training batch size" in out and "(default: 32)" in out
     assert "Optimizer choice" in out and "(default: 'adam')" in out
+
 
 @pytest.mark.skipif(pytest.importorskip("jsonargparse") is None, reason="jsonargparse not installed")
 def test_jsonargparse_trace_help_includes_defaults(run_example):

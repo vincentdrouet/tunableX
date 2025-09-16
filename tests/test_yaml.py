@@ -1,5 +1,5 @@
+
 import pytest
-from pathlib import Path
 
 YAML_CONTENT = """preprocess:
   dropna: true
@@ -13,6 +13,7 @@ train:
   batch_size: 16
   optimizer: sgd
 """
+
 
 @pytest.mark.skipif(pytest.importorskip("yaml") is None, reason="PyYAML not installed")
 def test_yaml_config_end_to_end(tmp_path, run_example):

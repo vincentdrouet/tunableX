@@ -1,14 +1,27 @@
 from __future__ import annotations
-from typing import Any, Iterable, Literal, get_type_hints
-import inspect
-import functools
-from pydantic import BaseModel, create_model
-from .registry import REGISTRY, TunableEntry
-from .context import _active_trace, _active_cfg
-from .naming import ns_to_field
 
-def tunable(*include: str, namespace: str|None=None, mode: Literal["include","exclude"]="include",
-            exclude: Iterable[str]|None=None, apps: Iterable[str]=()):
+import functools
+import inspect
+from typing import TYPE_CHECKING
+from typing import Any
+from typing import Literal
+from typing import get_type_hints
+
+from pydantic import BaseModel
+from pydantic import create_model
+
+from .context import _active_cfg
+from .context import _active_trace
+from .naming import ns_to_field
+from .registry import REGISTRY
+from .registry import TunableEntry
+
+if TYPE_CHECKING:
+    from collections.abc import Iterable
+
+
+def tunable(*include: str, namespace: str | None = None, mode: Literal["include", "exclude"] = "include",
+            exclude: Iterable[str] | None = None, apps: Iterable[str] = ()):
     """Mark a function's selected parameters as user-tunable.
     - include: names to include. If empty, include all params that have defaults
                (unless mode='exclude' with an explicit exclude list).
@@ -38,7 +51,7 @@ def tunable(*include: str, namespace: str|None=None, mode: Literal["include","ex
             fields[name] = (ann, default)
 
         ns = namespace or "main"  # default to 'main' if no namespace provided
-        model_name = f"{ns.title().replace('.','').replace('_','')}Config"
+        model_name = f"{ns.title().replace('.', '').replace('_', '')}Config"
         Model = create_model(model_name, **fields)  # type: ignore
 
         REGISTRY.register(TunableEntry(fn=fn, model=Model, sig=sig, namespace=ns, apps=set(apps)))

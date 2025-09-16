@@ -1,9 +1,14 @@
 from __future__ import annotations
+
 import argparse
 import importlib
 import json
 import sys
-from .runtime import schema_for_apps, defaults_for_apps, schema_by_trace, write_schema
+
+from .runtime import defaults_for_apps
+from .runtime import schema_by_trace
+from .runtime import schema_for_apps
+from .runtime import write_schema
 
 
 def _import_modules(mods):

@@ -1,7 +1,9 @@
 import json
+
 import pytest
 
 # Test that a tunable Path parameter serializes correctly in defaults and can be overridden.
+
 
 @pytest.mark.skipif(pytest.importorskip("jsonargparse") is None, reason="jsonargparse not installed")
 def test_path_tunable_defaults_and_override(tmp_path, repo_root, run_example):

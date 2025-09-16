@@ -1,8 +1,10 @@
 import json
+
 import pytest
 
 # Additional tests focusing on override precedence to ensure defaults show in help do not
 # change merging order: defaults <- config file <- CLI overrides.
+
 
 @pytest.mark.skipif(pytest.importorskip("jsonargparse") is None, reason="jsonargparse not installed")
 def test_jsonargparse_app_override_precedence(tmp_path, run_example):
@@ -28,6 +30,7 @@ def test_jsonargparse_app_override_precedence(tmp_path, run_example):
     # Expect overridden values
     assert "build_model 512 0.15" in out  # dropout from file, hidden_units from CLI
     assert "train 50 8 sgd" in out  # epochs from CLI, batch_size+optimizer from file
+
 
 @pytest.mark.skipif(pytest.importorskip("jsonargparse") is None, reason="jsonargparse not installed")
 def test_jsonargparse_trace_override_precedence(tmp_path, run_example):

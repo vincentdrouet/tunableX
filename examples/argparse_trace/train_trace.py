@@ -1,7 +1,10 @@
-from jsonargparse import ArgumentParser
-from tunablex import use_config
-from tunablex.runtime import load_config_for_entry, schema_by_trace, write_schema
 import examples.myapp.pipeline as pipeline  # registers @tunable
+from jsonargparse import ArgumentParser
+
+from tunablex import use_config
+from tunablex.runtime import load_config_for_entry
+from tunablex.runtime import schema_by_trace
+from tunablex.runtime import write_schema
 
 if __name__ == "__main__":
     parser = ArgumentParser(prog="train_trace")

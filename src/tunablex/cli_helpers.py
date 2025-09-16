@@ -1,11 +1,21 @@
 from __future__ import annotations
-from typing import get_origin, get_args, Literal
-from pydantic import BaseModel
-from jsonargparse import ArgumentParser  # works with jsonargparse or argparse-compatible
-from argparse import BooleanOptionalAction, SUPPRESS
+
+from argparse import SUPPRESS
+from argparse import BooleanOptionalAction
 from pathlib import Path
-from .runtime import make_app_config_for, make_app_config_for_entry
+from typing import TYPE_CHECKING
+from typing import Literal
+from typing import get_args
+from typing import get_origin
+
+from pydantic import BaseModel
+
 from .io import load_structured_config
+from .runtime import make_app_config_for
+from .runtime import make_app_config_for_entry
+
+if TYPE_CHECKING:
+    from jsonargparse import ArgumentParser
 
 
 def _help_with_default(fld) -> str | None:
@@ -53,11 +63,13 @@ def add_flags_from_model(parser: ArgumentParser, AppConfig) -> None:
             else:
                 grp.add_argument(flag, type=str, dest=dest, help=help_text, default=SUPPRESS)  # fallback; validated later
 
+
 def add_flags_by_app(parser: ArgumentParser, app: str):
     """Add flags for all tunables tagged with the given app and return the AppConfig model."""
     AppConfig = make_app_config_for(app)
     add_flags_from_model(parser, AppConfig)
     return AppConfig
+
 
 def add_flags_by_entry(parser: ArgumentParser, entrypoint, *args, **kwargs) -> None:
     AppConfig = make_app_config_for_entry(entrypoint, *args, **kwargs)
@@ -66,10 +78,12 @@ def add_flags_by_entry(parser: ArgumentParser, entrypoint, *args, **kwargs) -> N
 # New helper: trace an entrypoint to discover all tunables it (transitively) uses and add flags.
 # Returns the generated AppConfig so callers can avoid a second trace.
 
+
 def add_flags_by_trace(parser: ArgumentParser, entrypoint, *args, **kwargs):
     AppConfig = make_app_config_for_entry(entrypoint, *args, **kwargs)
     add_flags_from_model(parser, AppConfig)
     return AppConfig
+
 
 def deep_update(base: dict, extra: dict) -> dict:
     for k, v in (extra or {}).items():
@@ -79,13 +93,14 @@ def deep_update(base: dict, extra: dict) -> dict:
             base[k] = v
     return base
 
+
 def collect_overrides(args, AppConfig) -> dict:
     out = {}
     for section_name, section_field in AppConfig.model_fields.items():
         section_model = section_field.annotation
         if not (isinstance(section_model, type) and issubclass(section_model, BaseModel)):
             continue
-        for name in section_model.model_fields.keys():
+        for name in section_model.model_fields:
             dest = f"TX__{section_name}__{name}"
             if hasattr(args, dest):  # present only if supplied (SUPPRESS otherwise)
                 val = getattr(args, dest)
@@ -93,11 +108,11 @@ def collect_overrides(args, AppConfig) -> dict:
                     out.setdefault(section_name, {})[name] = val
     return out
 
+
 def build_cfg_from_file_and_args(AppConfig, args, config_attr: str = "config") -> dict:
     cfg = AppConfig().model_dump(mode="json")
     path = getattr(args, config_attr, None)
     if path:
         cfg = deep_update(cfg, load_structured_config(path))
     overrides = collect_overrides(args, AppConfig)
-    cfg = deep_update(cfg, overrides)
-    return cfg
+    return deep_update(cfg, overrides)

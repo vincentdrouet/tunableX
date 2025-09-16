@@ -1,7 +1,11 @@
-from jsonargparse import ArgumentParser  # could be argparse as well
-from tunablex import use_config
-from tunablex.runtime import load_app_config, schema_for_apps, defaults_for_apps, write_schema
 import examples.myapp.pipeline as pipeline  # registers @tunable
+from jsonargparse import ArgumentParser  # could be argparse as well
+
+from tunablex import use_config
+from tunablex.runtime import defaults_for_apps
+from tunablex.runtime import load_app_config
+from tunablex.runtime import schema_for_apps
+from tunablex.runtime import write_schema
 
 if __name__ == "__main__":
     parser = ArgumentParser(prog="train_app")
