@@ -82,7 +82,7 @@ def tunable(
                     section = getattr(app_cfg, section_attr)
                     if section is not None:
                         data = section if isinstance(section, dict) else section.model_dump()
-                        filtered = {k: v for k, v in data.items() if k in sig.parameters}
+                        filtered = {k: v for k, v in data.items() if k in sig.parameters and k not in kwargs}
                         return fn(*args, **filtered, **kwargs)
 
             return fn(*args, **kwargs)
