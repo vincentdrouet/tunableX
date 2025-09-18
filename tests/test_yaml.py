@@ -1,18 +1,20 @@
+from __future__ import annotations
 import pytest
-from pathlib import Path
 
-YAML_CONTENT = """preprocess:
-  dropna: true
-  normalize: minmax
-  clip_outliers: 2.5
-model:
+
+YAML_CONTENT = """model:
   hidden_units: 512
   dropout: 0.1
+  preprocess:
+    dropna: true
+    normalize: minmax
+    clip_outliers: 2.5
 train:
   epochs: 42
   batch_size: 16
   optimizer: sgd
 """
+
 
 @pytest.mark.skipif(pytest.importorskip("yaml") is None, reason="PyYAML not installed")
 def test_yaml_config_end_to_end(tmp_path, run_example):

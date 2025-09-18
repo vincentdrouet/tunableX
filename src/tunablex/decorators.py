@@ -1,17 +1,33 @@
-from __future__ import annotations
-from typing import Any, Iterable, Literal, get_type_hints
-import inspect
-import functools
-from pydantic import BaseModel, create_model
-from .registry import REGISTRY, TunableEntry
-from .context import _active_trace, _active_cfg
-from .naming import ns_to_field
+"""Decorator to declare tunable function parameters and auto-inject config.
 
-def tunable(*include: str, namespace: str|None=None, mode: Literal["include","exclude"]="include",
-            exclude: Iterable[str]|None=None, apps: Iterable[str]=()):
+Wraps functions, registers a Pydantic model per namespace, and injects values
+from the active AppConfig at call time. Supports dotted namespaces.
+"""
+
+from __future__ import annotations
+
+import functools
+import inspect
+from collections.abc import Iterable
+from typing import Any, Literal, get_type_hints
+
+from pydantic import BaseModel, create_model
+
+from .context import _active_cfg, _active_trace
+from .registry import REGISTRY, TunableEntry
+
+
+def tunable(
+    *include: str,
+    namespace: str | None = None,
+    mode: Literal["include", "exclude"] = "include",
+    exclude: Iterable[str] | None = None,
+    apps: Iterable[str] = (),
+):
     """Mark a function's selected parameters as user-tunable.
+
     - include: names to include. If empty, include all params that have defaults
-               (unless mode='exclude' with an explicit exclude list).
+      (unless mode='exclude' with an explicit exclude list).
     - namespace: JSON section name; defaults to 'module.function'.
     - apps: optional tags to group functions per executable/app.
     """
@@ -38,10 +54,18 @@ def tunable(*include: str, namespace: str|None=None, mode: Literal["include","ex
             fields[name] = (ann, default)
 
         ns = namespace or "main"  # default to 'main' if no namespace provided
-        model_name = f"{ns.title().replace('.','').replace('_','')}Config"
-        Model = create_model(model_name, **fields)  # type: ignore
+        model_name = f"{ns.title().replace('.', '').replace('_', '')}Config"
+        model_type: type[BaseModel] = create_model(model_name, **fields)  # type: ignore[assignment]
 
-        REGISTRY.register(TunableEntry(fn=fn, model=Model, sig=sig, namespace=ns, apps=set(apps)))
+        REGISTRY.register(TunableEntry(fn=fn, model=model_type, sig=sig, namespace=ns, apps=set(apps)))
+
+        def _resolve_nested_section(cfg_model: BaseModel, dotted_ns: str):
+            obj: Any = cfg_model
+            for seg in dotted_ns.split("."):
+                if obj is None or not hasattr(obj, seg):
+                    return None
+                obj = getattr(obj, seg)
+            return obj
 
         @functools.wraps(fn)
         def wrapper(*args, cfg: BaseModel | dict | None = None, **kwargs):
@@ -58,13 +82,11 @@ def tunable(*include: str, namespace: str|None=None, mode: Literal["include","ex
 
             app_cfg = _active_cfg.get()
             if app_cfg is not None:
-                section_attr = ns_to_field(ns)
-                if hasattr(app_cfg, section_attr):
-                    section = getattr(app_cfg, section_attr)
-                    if section is not None:
-                        data = section if isinstance(section, dict) else section.model_dump()
-                        filtered = {k: v for k, v in data.items() if k in sig.parameters}
-                        return fn(*args, **filtered, **kwargs)
+                section = _resolve_nested_section(app_cfg, ns)
+                if section is not None:
+                    data = section if isinstance(section, dict) else section.model_dump()
+                    filtered = {k: v for k, v in data.items() if k in sig.parameters}
+                    return fn(*args, **filtered, **kwargs)
 
             return fn(*args, **kwargs)
 
