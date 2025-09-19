@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import json
 import pathlib
 
@@ -8,8 +10,11 @@ def make_train_config(path: pathlib.Path, epochs=10, batch_size=32, optimizer="a
                       hidden_units=128, dropout=0.2,
                       dropna=True, normalize="zscore", clip_outliers=3.0):
     data = {
-        "preprocess": {"dropna": dropna, "normalize": normalize, "clip_outliers": clip_outliers},
-        "model": {"hidden_units": hidden_units, "dropout": dropout},
+        "model": {
+            "hidden_units": hidden_units,
+            "dropout": dropout,
+            "preprocess": {"dropna": dropna, "normalize": normalize, "clip_outliers": clip_outliers},
+        },
         "train": {"epochs": epochs, "batch_size": batch_size, "optimizer": optimizer},
     }
     path.write_text(json.dumps(data))
@@ -42,7 +47,7 @@ def test_argparse_trace_with_config(tmp_path, run_example):
 def test_jsonargparse_app_defaults_and_overrides(run_example):
     code, out, err = run_example(
         "examples/jsonargparse_app/train_jsonarg_app.py",
-        ["--train.epochs", "20", "--model.hidden_units", "256", "--preprocess.normalize", "minmax"],
+        ["--train.epochs", "20", "--model.hidden_units", "256", "--model.preprocess.normalize", "minmax"],
     )
     assert code == 0, err
     assert "build_model 256" in out
@@ -65,7 +70,7 @@ def test_jsonargparse_app_file_plus_overrides(tmp_path, run_example):
 def test_jsonargparse_trace_defaults_cli(run_example):
     code, out, err = run_example(
         "examples/jsonargparse_trace/train_jsonarg_trace.py",
-        ["--no-preprocess.dropna", "--train.batch_size", "64"],
+        ["--no-model.preprocess.dropna", "--train.batch_size", "64"],
     )
     assert code == 0, err
     assert "train " in out  # epochs default, batch overridden

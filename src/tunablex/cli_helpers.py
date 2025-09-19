@@ -1,3 +1,9 @@
+"""CLI helpers to expose tunables as jsonargparse flags and build configs.
+
+- Adds flags for nested namespaces using dotted paths (e.g., --model.preprocess.toto.dropna).
+- Builds overrides dict matching the nested JSON structure.
+"""
+
 from __future__ import annotations
 
 from argparse import SUPPRESS
@@ -22,9 +28,7 @@ def _help_with_default(fld) -> str | None:
     desc = getattr(fld, "description", None)
     if fld.is_required():
         return f"{desc} (required)" if desc else "(required)"
-    # field has a default
     default_val = fld.default
-    # Normalize default representation
     if isinstance(default_val, bool):
         default_str = str(default_val).lower()
     elif isinstance(default_val, Path):
@@ -36,22 +40,28 @@ def _help_with_default(fld) -> str | None:
     return f"(default: {default_str})"
 
 
-def add_flags_from_model(parser: ArgumentParser, AppConfig) -> None:
+def add_flags_from_model(parser: ArgumentParser, app_config_model) -> None:
     """Create flags like --section.field for each tunable in the AppConfig model.
 
+    Recurses into nested BaseModel fields to support compounded namespaces.
     Parser defaults are SUPPRESS so we can detect presence via hasattr(args, dest).
     Actual defaults still come from the Pydantic model instance when building the config.
     """
-    for section_name, section_field in AppConfig.model_fields.items():
-        section_model = section_field.annotation
-        if not (isinstance(section_model, type) and issubclass(section_model, BaseModel)):
-            continue
-        grp = parser.add_argument_group(section_name)
-        for name, fld in section_model.model_fields.items():
+
+    def is_model_type(ann) -> bool:
+        return isinstance(ann, type) and issubclass(ann, BaseModel)
+
+    def add_section_flags(display_prefix: str, dest_prefix: str, model_type: type[BaseModel]) -> None:
+        grp = parser.add_argument_group(display_prefix)
+        for name, fld in model_type.model_fields.items():
             ann = fld.annotation
+            # Recurse into nested models
+            if is_model_type(ann):
+                add_section_flags(f"{display_prefix}.{name}", f"{dest_prefix}__{name}", ann)
+                continue
             help_text = _help_with_default(fld)
-            flag = f"--{section_name}.{name}"
-            dest = f"TX__{section_name}__{name}"
+            flag = f"--{display_prefix}.{name}"
+            dest = f"TX__{dest_prefix}__{name}"
             if get_origin(ann) is Literal:
                 grp.add_argument(flag, choices=[*get_args(ann)], dest=dest, help=help_text, default=SUPPRESS)
             elif ann is bool:
@@ -61,31 +71,42 @@ def add_flags_from_model(parser: ArgumentParser, AppConfig) -> None:
             elif ann is Path:
                 grp.add_argument(flag, type=str, dest=dest, help=help_text, default=SUPPRESS)
             else:
-                grp.add_argument(flag, type=str, dest=dest, help=help_text, default=SUPPRESS)  # fallback; validated later
+                grp.add_argument(flag, type=str, dest=dest, help=help_text, default=SUPPRESS)
+
+    for section_name, section_field in app_config_model.model_fields.items():
+        section_model = section_field.annotation
+        if not (isinstance(section_model, type) and issubclass(section_model, BaseModel)):
+            continue
+        display_section = section_name.replace("__", ".")
+        add_section_flags(display_section, section_name, section_model)
 
 
 def add_flags_by_app(parser: ArgumentParser, app: str):
     """Add flags for all tunables tagged with the given app and return the AppConfig model."""
-    AppConfig = make_app_config_for(app)
-    add_flags_from_model(parser, AppConfig)
-    return AppConfig
+    app_config_model = make_app_config_for(app)
+    add_flags_from_model(parser, app_config_model)
+    return app_config_model
 
 
 def add_flags_by_entry(parser: ArgumentParser, entrypoint, *args, **kwargs) -> None:
-    AppConfig = make_app_config_for_entry(entrypoint, *args, **kwargs)
-    add_flags_from_model(parser, AppConfig)
+    """Add flags discovered by tracing an entrypoint call."""
+    app_config_model = make_app_config_for_entry(entrypoint, *args, **kwargs)
+    add_flags_from_model(parser, app_config_model)
+
 
 # New helper: trace an entrypoint to discover all tunables it (transitively) uses and add flags.
 # Returns the generated AppConfig so callers can avoid a second trace.
 
 
 def add_flags_by_trace(parser: ArgumentParser, entrypoint, *args, **kwargs):
-    AppConfig = make_app_config_for_entry(entrypoint, *args, **kwargs)
-    add_flags_from_model(parser, AppConfig)
-    return AppConfig
+    """Trace entrypoint to generate flags for only the namespaces used."""
+    app_config_model = make_app_config_for_entry(entrypoint, *args, **kwargs)
+    add_flags_from_model(parser, app_config_model)
+    return app_config_model
 
 
 def deep_update(base: dict, extra: dict) -> dict:
+    """Recursively merge extra into base (in place) and return base."""
     for k, v in (extra or {}).items():
         if isinstance(v, dict) and isinstance(base.get(k), dict):
             deep_update(base[k], v)
@@ -94,25 +115,46 @@ def deep_update(base: dict, extra: dict) -> dict:
     return base
 
 
-def collect_overrides(args, AppConfig) -> dict:
-    out = {}
-    for section_name, section_field in AppConfig.model_fields.items():
+def collect_overrides(args, app_config_model) -> dict:
+    """Collect provided CLI flags into a nested overrides dict matching AppConfig."""
+
+    def is_model_type(ann) -> bool:
+        return isinstance(ann, type) and issubclass(ann, BaseModel)
+
+    overrides: dict = {}
+
+    def assign_path(path: list[str], name: str, value) -> None:
+        cur = overrides
+        for p in path:
+            cur = cur.setdefault(p, {})
+        cur[name] = value
+
+    def walk_section(dest_prefix: str, node_path: list[str], model_type: type[BaseModel]) -> None:
+        for name, fld in model_type.model_fields.items():
+            ann = fld.annotation
+            if is_model_type(ann):
+                walk_section(f"{dest_prefix}__{name}", [*node_path, name], ann)
+                continue
+            dest = f"TX__{dest_prefix}__{name}"
+            if hasattr(args, dest):
+                val = getattr(args, dest)
+                if val is not None:
+                    assign_path(node_path, name, val)
+
+    for section_name, section_field in app_config_model.model_fields.items():
         section_model = section_field.annotation
         if not (isinstance(section_model, type) and issubclass(section_model, BaseModel)):
             continue
-        for name in section_model.model_fields:
-            dest = f"TX__{section_name}__{name}"
-            if hasattr(args, dest):  # present only if supplied (SUPPRESS otherwise)
-                val = getattr(args, dest)
-                if val is not None:
-                    out.setdefault(section_name, {})[name] = val
-    return out
+        walk_section(section_name, [section_name.replace("__", "_")], section_model)
+
+    return overrides
 
 
-def build_cfg_from_file_and_args(AppConfig, args, config_attr: str = "config") -> dict:
-    cfg = AppConfig().model_dump(mode="json")
+def build_cfg_from_file_and_args(app_config_model, args, config_attr: str = "config") -> dict:
+    """Merge defaults <- file (optional) <- CLI flags into a nested config dict."""
+    cfg = app_config_model().model_dump(mode="json")
     path = getattr(args, config_attr, None)
     if path:
         cfg = deep_update(cfg, load_structured_config(path))
-    overrides = collect_overrides(args, AppConfig)
+    overrides = collect_overrides(args, app_config_model)
     return deep_update(cfg, overrides)

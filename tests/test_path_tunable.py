@@ -1,3 +1,4 @@
+from __future__ import annotations
 import json
 
 import pytest
@@ -18,7 +19,7 @@ from tunablex import tunable, use_config
 from tunablex.runtime import make_app_config_for
 from tunablex.cli_helpers import add_flags_by_app, build_cfg_from_file_and_args
 
-@tunable("ckpt_path", namespace="train_path", apps=("train",))
+@tunable("ckpt_path", namespace="train.path", apps=("train",))
 def step(ckpt_path: Path = Field(Path("ckpt"), description="Path to checkpoint directory")):
     print("STEP", ckpt_path)
 
@@ -56,13 +57,13 @@ if __name__ == "__main__":
     assert "STEP ckpt" in out
 
     # 3. Provide override
-    rc, out, err = run_example(script_path, ["--train_path.ckpt_path", str(tmp_path / "newckpt")])
+    rc, out, err = run_example(script_path, ["--train.path.ckpt_path", str(tmp_path / "newckpt")])
     assert rc == 0, err
     assert f"STEP {tmp_path / 'newckpt'}" in out
 
     # 4. Provide via config file
     cfg_file = tmp_path / "cfg.json"
-    cfg_file.write_text(json.dumps({"train_path": {"ckpt_path": str(tmp_path / "cfgckpt")}}))
+    cfg_file.write_text(json.dumps({"train": {"path": {"ckpt_path": str(tmp_path / "cfgckpt")}}}))
     rc, out, err = run_example(script_path, ["--config", str(cfg_file)])
     assert rc == 0, err
     assert f"STEP {tmp_path / 'cfgckpt'}" in out

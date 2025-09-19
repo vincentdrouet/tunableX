@@ -1,3 +1,9 @@
+"""Decorator to declare tunable function parameters and auto-inject config.
+
+Wraps functions, registers a Pydantic model per namespace, and injects values
+from the active AppConfig at call time. Supports dotted namespaces.
+"""
+
 from __future__ import annotations
 
 import functools
@@ -5,14 +11,12 @@ import inspect
 from typing import TYPE_CHECKING
 from typing import Any
 from typing import Literal
-from typing import get_type_hints
 
 from pydantic import BaseModel
 from pydantic import create_model
 
 from .context import _active_cfg
 from .context import _active_trace
-from .naming import ns_to_field
 from .registry import REGISTRY
 from .registry import TunableEntry
 
@@ -30,7 +34,7 @@ def tunable(
     """Mark a function's selected parameters as user-tunable.
 
     - include: names to include. If empty, include all params that have defaults
-               (unless mode='exclude' with an explicit exclude list).
+      (unless mode='exclude' with an explicit exclude list).
     - namespace: JSON section name; defaults to 'module.function'.
     - apps: optional tags to group functions per executable/app.
     """
@@ -39,8 +43,22 @@ def tunable(
 
     def decorator(fn):
         sig = inspect.signature(fn)
-        hints = get_type_hints(fn)
-        fields = {}
+        # NOTE: We intentionally avoid calling get_type_hints(fn) for the whole
+        # function because that attempts to resolve *all* annotations, including
+        # those for parameters that are NOT tunable. Those may rely on imports
+        # guarded by `if TYPE_CHECKING:` and thus raise at runtime. Instead we
+        # fetch raw (unevaluated) annotations and evaluate only the selected ones.
+        raw_anns = inspect.get_annotations(fn, eval_str=False)
+
+        def _eval_ann(value: Any) -> Any:
+            if isinstance(value, str):  # deferred annotation (from __future__ import annotations)
+                try:
+                    return eval(value, fn.__globals__, {})  # noqa: S307 - controlled eval
+                except (NameError, AttributeError, SyntaxError):  # pragma: no cover - fallback path
+                    return Any
+            return value
+
+        fields: dict[str, tuple[type[Any], Any]] = {}
         for name, p in sig.parameters.items():
             if p.kind in (p.VAR_POSITIONAL, p.VAR_KEYWORD):
                 continue
@@ -52,15 +70,23 @@ def tunable(
                 selected = p.default is not inspect._empty
             if not selected:
                 continue
-            ann = hints.get(name, Any)
+            ann = _eval_ann(raw_anns.get(name, Any))
             default = p.default if p.default is not inspect._empty else ...
             fields[name] = (ann, default)
 
         ns = namespace or "main"  # default to 'main' if no namespace provided
         model_name = f"{ns.title().replace('.', '').replace('_', '')}Config"
-        Model = create_model(model_name, **fields)  # type: ignore
+        model_type = create_model(model_name, **fields)  # type: ignore[assignment]
 
-        REGISTRY.register(TunableEntry(fn=fn, model=Model, sig=sig, namespace=ns, apps=set(apps)))
+        REGISTRY.register(TunableEntry(fn=fn, model=model_type, sig=sig, namespace=ns, apps=set(apps)))
+
+        def _resolve_nested_section(cfg_model: BaseModel, dotted_ns: str):
+            obj: Any = cfg_model
+            for seg in dotted_ns.split("."):
+                if obj is None or not hasattr(obj, seg):
+                    return None
+                obj = getattr(obj, seg)
+            return obj
 
         @functools.wraps(fn)
         def wrapper(*args, cfg: BaseModel | dict | None = None, **kwargs):
@@ -77,13 +103,11 @@ def tunable(
 
             app_cfg = _active_cfg.get()
             if app_cfg is not None:
-                section_attr = ns_to_field(ns)
-                if hasattr(app_cfg, section_attr):
-                    section = getattr(app_cfg, section_attr)
-                    if section is not None:
-                        data = section if isinstance(section, dict) else section.model_dump()
-                        filtered = {k: v for k, v in data.items() if k in sig.parameters and k not in kwargs}
-                        return fn(*args, **filtered, **kwargs)
+                section = _resolve_nested_section(app_cfg, ns)
+                if section is not None:
+                    data = section if isinstance(section, dict) else section.model_dump()
+                    filtered = {k: v for k, v in data.items() if k in sig.parameters}
+                    return fn(*args, **filtered, **kwargs)
 
             return fn(*args, **kwargs)
 

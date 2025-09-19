@@ -1,13 +1,12 @@
-
 import pytest
 
-YAML_CONTENT = """preprocess:
-  dropna: true
-  normalize: minmax
-  clip_outliers: 2.5
-model:
+YAML_CONTENT = """model:
   hidden_units: 512
   dropout: 0.1
+  preprocess:
+    dropna: true
+    normalize: minmax
+    clip_outliers: 2.5
 train:
   epochs: 42
   batch_size: 16
