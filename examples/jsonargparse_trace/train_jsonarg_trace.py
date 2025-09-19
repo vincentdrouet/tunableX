@@ -1,7 +1,9 @@
-from jsonargparse import ArgumentParser
-from tunablex import use_config
-from tunablex.cli_helpers import add_flags_by_trace, build_cfg_from_file_and_args
 import examples.myapp.pipeline as pipeline  # registers @tunable
+from jsonargparse import ArgumentParser
+
+from tunablex import use_config
+from tunablex.cli_helpers import add_flags_by_trace
+from tunablex.cli_helpers import build_cfg_from_file_and_args
 
 if __name__ == "__main__":
     parser = ArgumentParser(prog="train_jsonarg_trace")

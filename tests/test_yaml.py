@@ -1,6 +1,4 @@
-from __future__ import annotations
 import pytest
-
 
 YAML_CONTENT = """model:
   hidden_units: 512

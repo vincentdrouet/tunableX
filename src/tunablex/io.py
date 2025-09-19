@@ -1,9 +1,11 @@
 from __future__ import annotations
+
 import json
 from pathlib import Path
-from typing import Any, Dict
+from typing import Any
 
-def load_structured_config(path: str | Path) -> Dict[str, Any]:
+
+def load_structured_config(path: str | Path) -> dict[str, Any]:
     """Load JSON or YAML (and TOML when '.toml') into a dict.
     Tries by extension first; falls back to JSON then YAML.
     """
@@ -15,9 +17,12 @@ def load_structured_config(path: str | Path) -> Dict[str, Any]:
         try:
             import yaml  # PyYAML
         except ModuleNotFoundError as e:
-            raise RuntimeError(
+            msg = (
                 "YAML file provided but PyYAML is not installed. "
                 "Install with: uv pip install '.[yaml]'"
+            )
+            raise RuntimeError(
+                msg
             ) from e
         return yaml.safe_load(text) or {}
 
@@ -39,4 +44,5 @@ def load_structured_config(path: str | Path) -> Dict[str, Any]:
             import yaml  # PyYAML
             return yaml.safe_load(text) or {}
         except Exception as e:
-            raise RuntimeError(f"Could not parse config file: {p}") from e
+            msg = f"Could not parse config file: {p}"
+            raise RuntimeError(msg) from e

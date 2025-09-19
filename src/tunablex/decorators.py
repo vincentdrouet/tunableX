@@ -8,13 +8,20 @@ from __future__ import annotations
 
 import functools
 import inspect
-from collections.abc import Iterable
-from typing import Any, Literal, get_type_hints  # noqa: F401 (get_type_hints kept for potential external use)
+from typing import TYPE_CHECKING
+from typing import Any
+from typing import Literal
 
-from pydantic import BaseModel, create_model
+from pydantic import BaseModel
+from pydantic import create_model
 
-from .context import _active_cfg, _active_trace
-from .registry import REGISTRY, TunableEntry
+from .context import _active_cfg
+from .context import _active_trace
+from .registry import REGISTRY
+from .registry import TunableEntry
+
+if TYPE_CHECKING:
+    from collections.abc import Iterable
 
 
 def tunable(
@@ -31,7 +38,7 @@ def tunable(
     - namespace: JSON section name; defaults to 'module.function'.
     - apps: optional tags to group functions per executable/app.
     """
-    include_set = set(include) if include else None
+    include_set = set(include or ())
     exclude_set = set(exclude or ())
 
     def decorator(fn):
@@ -55,12 +62,12 @@ def tunable(
         for name, p in sig.parameters.items():
             if p.kind in (p.VAR_POSITIONAL, p.VAR_KEYWORD):
                 continue
-            if include_set is not None:
+            if include_set:
                 selected = name in include_set
             elif mode == "exclude" and exclude_set:
                 selected = (p.default is not inspect._empty) and (name not in exclude_set)
             else:
-                selected = (p.default is not inspect._empty)
+                selected = p.default is not inspect._empty
             if not selected:
                 continue
             ann = _eval_ann(raw_anns.get(name, Any))
@@ -69,7 +76,7 @@ def tunable(
 
         ns = namespace or "main"  # default to 'main' if no namespace provided
         model_name = f"{ns.title().replace('.', '').replace('_', '')}Config"
-        model_type: type[BaseModel] = create_model(model_name, **fields)  # type: ignore[assignment]
+        model_type = create_model(model_name, **fields)  # type: ignore[assignment]
 
         REGISTRY.register(TunableEntry(fn=fn, model=model_type, sig=sig, namespace=ns, apps=set(apps)))
 

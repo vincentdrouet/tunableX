@@ -1,5 +1,4 @@
-"""
-Example: Generate JSON Schema and default config by tracing execution of an entrypoint.
+"""Example: Generate JSON Schema and default config by tracing execution of an entrypoint.
 
 Usage:
   python examples/trace_generate_schema.py --entry train --prefix train_config
@@ -9,9 +8,13 @@ Usage:
   -> writes serve_config.schema.json and serve_config.json
 """
 from __future__ import annotations
+
 import argparse
-from tunablex.runtime import schema_by_trace, write_schema
+
 import examples.myapp.pipeline as pipeline  # registers @tunable
+
+from tunablex.runtime import schema_by_trace
+from tunablex.runtime import write_schema
 
 
 def main():

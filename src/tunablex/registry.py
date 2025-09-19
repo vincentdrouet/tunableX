@@ -8,10 +8,15 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
-from typing import Any, TYPE_CHECKING
+from dataclasses import dataclass
+from dataclasses import field
+from typing import TYPE_CHECKING
+from typing import Any
 
-from pydantic import BaseModel, Field, ValidationError, create_model
+from pydantic import BaseModel
+from pydantic import Field
+from pydantic import ValidationError
+from pydantic import create_model
 
 if TYPE_CHECKING:  # typing-only imports
     from collections.abc import Iterable
@@ -56,10 +61,7 @@ class TunableRegistry:
             if name in merged_fields:
                 prev_ann, _prev_def = merged_fields[name]
                 if prev_ann != ann:
-                    msg = (
-                        f"Conflicting field '{name}' in namespace '{entry.namespace}': "
-                        f"{prev_ann} vs {ann}"
-                    )
+                    msg = f"Conflicting field '{name}' in namespace '{entry.namespace}': {prev_ann} vs {ann}"
                     raise ValueError(msg)
                 continue  # keep first definition
             merged_fields[name] = (ann, fld)
@@ -81,7 +83,7 @@ class TunableRegistry:
         want = set(apps)
         return [ns for ns, e in self.by_namespace.items() if e.apps & want]
 
-    def build_config(self, namespaces: Iterable[str]):
+    def build_config(self, namespaces: Iterable[str]) -> BaseModel:
         """Create a top-level AppConfig model from selected namespaces.
 
         - Dotted namespaces are nested (e.g., "a.b.c" becomes cfg.a.b.c).

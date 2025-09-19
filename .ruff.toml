@@ -110,7 +110,7 @@ runtime-evaluated-base-classes = [
 
 [lint.isort]
 force-single-line = true
-required-imports = ["from __future__ import annotations"]
+# required-imports = ["from __future__ import annotations"]
 
 [lint.pydocstyle]
 convention = "google"
