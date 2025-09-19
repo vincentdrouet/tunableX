@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 """Tests that only tunable parameters have their annotations evaluated.
 
 Historically the decorator called get_type_hints(fn) which eagerly resolves
@@ -13,7 +11,10 @@ If the decorator still eagerly evaluated all annotations the decoration would
 raise NameError. The lazy implementation should ignore 'b' and succeed.
 """
 
-from tunablex import REGISTRY, tunable
+from __future__ import annotations
+
+from tunablex import REGISTRY
+from tunablex import tunable
 
 
 # Use an explicit unique namespace to avoid interference with other tests.

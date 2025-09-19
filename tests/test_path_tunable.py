@@ -1,5 +1,6 @@
 from __future__ import annotations
 import json
+
 import pytest
 
 # Test that a tunable Path parameter serializes correctly in defaults and can be overridden.

@@ -6,15 +6,22 @@
 
 from __future__ import annotations
 
-from argparse import BooleanOptionalAction, SUPPRESS
+from argparse import SUPPRESS
+from argparse import BooleanOptionalAction
 from pathlib import Path
-from typing import get_args, get_origin, Literal
+from typing import TYPE_CHECKING
+from typing import Literal
+from typing import get_args
+from typing import get_origin
 
-from jsonargparse import ArgumentParser  # works with jsonargparse or argparse-compatible
 from pydantic import BaseModel
 
 from .io import load_structured_config
-from .runtime import make_app_config_for, make_app_config_for_entry
+from .runtime import make_app_config_for
+from .runtime import make_app_config_for_entry
+
+if TYPE_CHECKING:
+    from jsonargparse import ArgumentParser
 
 
 def _help_with_default(fld) -> str | None:
@@ -89,6 +96,7 @@ def add_flags_by_entry(parser: ArgumentParser, entrypoint, *args, **kwargs) -> N
 
 # New helper: trace an entrypoint to discover all tunables it (transitively) uses and add flags.
 # Returns the generated AppConfig so callers can avoid a second trace.
+
 
 def add_flags_by_trace(parser: ArgumentParser, entrypoint, *args, **kwargs):
     """Trace entrypoint to generate flags for only the namespaces used."""
