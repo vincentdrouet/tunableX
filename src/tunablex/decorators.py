@@ -9,7 +9,7 @@ from __future__ import annotations
 import functools
 import inspect
 from collections.abc import Iterable
-from typing import Any, Literal, get_type_hints
+from typing import Any, Literal, get_type_hints  # noqa: F401 (get_type_hints kept for potential external use)
 
 from pydantic import BaseModel, create_model
 
@@ -36,7 +36,21 @@ def tunable(
 
     def decorator(fn):
         sig = inspect.signature(fn)
-        hints = get_type_hints(fn)
+        # NOTE: We intentionally avoid calling get_type_hints(fn) for the whole
+        # function because that attempts to resolve *all* annotations, including
+        # those for parameters that are NOT tunable. Those may rely on imports
+        # guarded by `if TYPE_CHECKING:` and thus raise at runtime. Instead we
+        # fetch raw (unevaluated) annotations and evaluate only the selected ones.
+        raw_anns = inspect.get_annotations(fn, eval_str=False)
+
+        def _eval_ann(value: Any) -> Any:
+            if isinstance(value, str):  # deferred annotation (from __future__ import annotations)
+                try:
+                    return eval(value, fn.__globals__, {})  # noqa: S307 - controlled eval
+                except (NameError, AttributeError, SyntaxError):  # pragma: no cover - fallback path
+                    return Any
+            return value
+
         fields: dict[str, tuple[type[Any], Any]] = {}
         for name, p in sig.parameters.items():
             if p.kind in (p.VAR_POSITIONAL, p.VAR_KEYWORD):
@@ -49,7 +63,7 @@ def tunable(
                 selected = (p.default is not inspect._empty)
             if not selected:
                 continue
-            ann = hints.get(name, Any)
+            ann = _eval_ann(raw_anns.get(name, Any))
             default = p.default if p.default is not inspect._empty else ...
             fields[name] = (ann, default)
 
