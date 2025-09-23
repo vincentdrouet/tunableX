@@ -16,7 +16,6 @@ from pydantic import BaseModel
 from pydantic import create_model
 
 from .context import _active_cfg
-from .context import _active_trace
 from .registry import REGISTRY
 from .registry import TunableEntry
 
@@ -43,11 +42,6 @@ def tunable(
 
     def decorator(fn):
         sig = inspect.signature(fn)
-        # NOTE: We intentionally avoid calling get_type_hints(fn) for the whole
-        # function because that attempts to resolve *all* annotations, including
-        # those for parameters that are NOT tunable. Those may rely on imports
-        # guarded by `if TYPE_CHECKING:` and thus raise at runtime. Instead we
-        # fetch raw (unevaluated) annotations and evaluate only the selected ones.
         raw_anns = inspect.get_annotations(fn, eval_str=False)
 
         def _eval_ann(value: Any) -> Any:
@@ -90,12 +84,6 @@ def tunable(
 
         @functools.wraps(fn)
         def wrapper(*args, cfg: BaseModel | dict | None = None, **kwargs):
-            tracer = _active_trace.get()
-            if tracer is not None:
-                tracer.namespaces.add(ns)
-                if tracer.noop:
-                    return None
-
             if cfg is not None:
                 data = cfg if isinstance(cfg, dict) else cfg.model_dump()
                 filtered = {k: v for k, v in data.items() if k in sig.parameters}
