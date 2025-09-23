@@ -9,9 +9,13 @@ from tunablex.runtime import write_schema
 
 if __name__ == "__main__":
     parser = ArgumentParser(prog="train_app")
-    parser.add_argument("--config", required=True, help="Path to train_config.json")
-    parser.add_argument("--gen-schema", action="store_true", help="Generate JSON Schema & defaults for the 'train' app and exit")
-    parser.add_argument("--schema-prefix", default="train_config", help="Prefix for generated files when using --gen-schema")
+    parser.add_argument("--config", help="Path to train_config.json")
+    parser.add_argument(
+        "--gen-schema", action="store_true", help="Generate JSON Schema & defaults for the 'train' app and exit"
+    )
+    parser.add_argument(
+        "--schema-prefix", default="train_config", help="Prefix for generated files when using --gen-schema"
+    )
     args = parser.parse_args()
 
     if args.gen_schema:
