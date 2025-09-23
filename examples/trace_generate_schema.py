@@ -1,4 +1,4 @@
-"""Example: Generate JSON Schema and default config by tracing execution of an entrypoint.
+"""Example: Generate JSON Schema and default config by static AST analysis of an entrypoint.
 
 Usage:
   python examples/trace_generate_schema.py --entry train --prefix train_config
@@ -13,7 +13,7 @@ import argparse
 
 import examples.myapp.pipeline as pipeline  # registers @tunable
 
-from tunablex.runtime import schema_by_trace
+from tunablex.runtime import schema_by_entry_ast
 from tunablex.runtime import write_schema
 
 
@@ -23,7 +23,7 @@ def main():
         "--entry",
         choices=["train", "serve"],
         default="train",
-        help="Which entrypoint to trace (train_main or serve_main)",
+        help="Which entrypoint to analyze (train_main or serve_main)",
     )
     parser.add_argument(
         "--prefix",
@@ -33,10 +33,10 @@ def main():
     args = parser.parse_args()
 
     entry_fn = pipeline.train_main if args.entry == "train" else pipeline.serve_main
-    schema, defaults, namespaces = schema_by_trace(entry_fn)
+    schema, defaults, namespaces = schema_by_entry_ast(entry_fn)
     write_schema(args.prefix, schema, defaults)
 
-    print(f"Traced namespaces: {sorted(namespaces)}")
+    print(f"Analyzed namespaces (AST): {sorted(namespaces)}")
     print(f"Wrote {args.prefix}.schema.json and {args.prefix}.json")
 
 

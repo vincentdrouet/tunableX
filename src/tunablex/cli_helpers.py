@@ -88,21 +88,20 @@ def add_flags_by_app(parser: ArgumentParser, app: str):
     return app_config_model
 
 
-def add_flags_by_entry(parser: ArgumentParser, entrypoint, *args, **kwargs) -> None:
-    """Add flags discovered by tracing an entrypoint call."""
-    app_config_model = make_app_config_for_entry(entrypoint, *args, **kwargs)
-    add_flags_from_model(parser, app_config_model)
+def add_flags_by_entry(parser: ArgumentParser, entrypoint, *args, **kwargs) -> BaseModel:  # type: ignore[override]
+    """Add flags discovered via static (AST) analysis of the entrypoint call graph.
 
-
-# New helper: trace an entrypoint to discover all tunables it (transitively) uses and add flags.
-# Returns the generated AppConfig so callers can avoid a second trace.
-
-
-def add_flags_by_trace(parser: ArgumentParser, entrypoint, *args, **kwargs):
-    """Trace entrypoint to generate flags for only the namespaces used."""
+    Returns the generated AppConfig model (same as add_flags_by_app).
+    """
     app_config_model = make_app_config_for_entry(entrypoint, *args, **kwargs)
     add_flags_from_model(parser, app_config_model)
     return app_config_model
+
+
+# Backwards compatibility alias: previously tracing; now static analysis underneath
+def add_flags_by_trace(parser: ArgumentParser, entrypoint, *args, **kwargs):  # noqa: D401
+    """Alias for add_flags_by_entry kept for backwards compatibility."""
+    return add_flags_by_entry(parser, entrypoint, *args, **kwargs)
 
 
 def deep_update(base: dict, extra: dict) -> dict:

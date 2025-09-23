@@ -9,7 +9,7 @@ from .runtime import load_app_config
 from .runtime import load_config_for_entry
 from .runtime import make_app_config_for
 from .runtime import make_app_config_for_entry
-from .runtime import schema_by_trace
+from .runtime import schema_by_entry_ast
 from .runtime import schema_for_apps
 from .runtime import use_config
 from .runtime import write_schema
@@ -18,14 +18,14 @@ __all__ = [
     "REGISTRY",
     "add_flags_by_app",
     "add_flags_by_entry",
-    "add_flags_by_trace",
+    "add_flags_by_trace",  # still provided (AST under the hood)
     "build_cfg_from_file_and_args",
     "defaults_for_apps",
     "load_app_config",
     "load_config_for_entry",
     "make_app_config_for",
     "make_app_config_for_entry",
-    "schema_by_trace",
+    "schema_by_entry_ast",
     "schema_for_apps",
     "tunable",
     "use_config",

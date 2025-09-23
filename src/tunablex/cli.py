@@ -6,7 +6,7 @@ import json
 import sys
 
 from .runtime import defaults_for_apps
-from .runtime import schema_by_trace
+from .runtime import schema_by_entry_ast
 from .runtime import schema_for_apps
 from .runtime import write_schema
 
@@ -32,7 +32,7 @@ def main(argv=None):
     s.add_argument("--sys-path", dest="sys_paths", nargs="+", default=[], help="Paths to insert into sys.path before imports.")
     s.add_argument("--out", default=None)
 
-    t = sub.add_parser("trace", help="Emit schema/defaults by tracing a module:function entrypoint.")
+    t = sub.add_parser("analyze", help="Emit schema/defaults by static AST analysis of a module:function entrypoint.")
     t.add_argument("--entry", required=True)
     t.add_argument("--import", dest="imports", nargs="+", required=True)
     t.add_argument("--sys-path", dest="sys_paths", nargs="+", default=[], help="Paths to insert into sys.path before imports.")
@@ -51,10 +51,10 @@ def main(argv=None):
             print(json.dumps({"schema": schema, "defaults": defaults}, indent=2, default=str))
         return 0
 
-    if args.cmd == "trace":
+    if args.cmd == "analyze":
         modname, funcname = args.entry.split(":")
         fn = getattr(importlib.import_module(modname), funcname)
-        schema, defaults, touched = schema_by_trace(fn)
+        schema, defaults, touched = schema_by_entry_ast(fn)
         if args.out:
             write_schema(args.out, schema, defaults)
         else:
