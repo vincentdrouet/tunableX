@@ -1,8 +1,8 @@
 from __future__ import annotations
 
 import ast
-import json
 import inspect
+import json
 from pathlib import Path
 from typing import TYPE_CHECKING
 from typing import Callable
@@ -35,6 +35,7 @@ def defaults_for_apps(*apps: str) -> dict:
 # ---------------------------------------------------------------------------
 # AST-based namespace discovery
 # ---------------------------------------------------------------------------
+
 
 def _gather_called_function_names(entry_fn: Callable) -> set[str]:
     """Return set of fully qualified function names that are reachable from entry_fn's module.
@@ -118,6 +119,7 @@ def load_app_config(app: str, json_path: str | Path):
 
 
 # AST-based (no app)
+
 
 def make_app_config_for_entry(entrypoint: Callable, *args, **_kwargs):  # args unused for static
     namespaces = _namespaces_for_entry(entrypoint)
