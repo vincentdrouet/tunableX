@@ -1,3 +1,6 @@
+<p align="center">
+  <img src="assets/tunableX-title.png" alt="tunableX banner" width="100%" />
+</p>
 # tunableX
 
 Function-first **tunable parameters** for Python apps — with:
