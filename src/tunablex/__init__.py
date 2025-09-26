@@ -2,6 +2,8 @@ from .cli_helpers import add_flags_by_app
 from .cli_helpers import add_flags_by_entry
 from .cli_helpers import add_flags_by_trace
 from .cli_helpers import build_cfg_from_file_and_args
+from .context import use_config
+from .decorators import TunableParamMeta
 from .decorators import tunable
 from .registry import REGISTRY
 from .runtime import defaults_for_apps
@@ -11,11 +13,11 @@ from .runtime import make_app_config_for
 from .runtime import make_app_config_for_entry
 from .runtime import schema_by_entry_ast
 from .runtime import schema_for_apps
-from .runtime import use_config
 from .runtime import write_schema
 
 __all__ = [
     "REGISTRY",
+    "TunableParamMeta",
     "add_flags_by_app",
     "add_flags_by_entry",
     "add_flags_by_trace",  # still provided (AST under the hood)

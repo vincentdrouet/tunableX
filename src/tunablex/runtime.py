@@ -5,17 +5,15 @@ import inspect
 import json
 from pathlib import Path
 from typing import TYPE_CHECKING
-from typing import Callable
 
 from pydantic import BaseModel
 from pydantic import ValidationError
 
-from .context import use_config  # noqa: F401
 from .io import load_structured_config
 from .registry import REGISTRY
 
-if TYPE_CHECKING:  # pragma: no cover
-    pass
+if TYPE_CHECKING:
+    from collections.abc import Callable
 
 
 def schema_for_apps(*apps: str) -> dict:
@@ -78,7 +76,7 @@ def _namespaces_for_entry(entrypoint: Callable) -> list[str]:
     # any of the called function names discovered statically.
     called = _gather_called_function_names(entrypoint)
     namespaces: list[str] = []
-    for ns, entry in REGISTRY.by_namespace.items():
+    for ns, entry in REGISTRY.entry_dict.items():
         fn = entry.fn
         qn = f"{fn.__module__}.{fn.__name__}"
         short = fn.__name__

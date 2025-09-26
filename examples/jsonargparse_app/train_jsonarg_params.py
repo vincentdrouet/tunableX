@@ -2,7 +2,7 @@
 
 App-tag composition picks up namespaces defined via class inheritance.
 """
-import examples.myapp.params as params  # noqa: F401
+
 import examples.myapp.pipeline_params as pipeline
 from jsonargparse import ArgumentParser
 
