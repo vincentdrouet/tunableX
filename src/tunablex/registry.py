@@ -77,9 +77,9 @@ class TunableRegistry:
 
         # Merge model fields while preserving Field metadata. Prefer first definition.
         for name, fld in entry.fields.items():
-            if name in existing:
+            if name in existing.fields:
                 typ = fld[0]
-                prev_typ = existing.fields["name"][0]
+                prev_typ = existing.fields[name][0]
                 if prev_typ != typ:
                     msg = f"Conflicting field '{name}' in namespace '{entry.namespace}': {prev_typ} vs {typ}"
                     raise ValueError(msg)

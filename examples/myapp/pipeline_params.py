@@ -7,6 +7,8 @@ are registered by inferring namespace from default expressions like
 
 from __future__ import annotations
 
+from typing import Literal
+
 from tunablex import tunable
 
 from .params import Main
@@ -17,14 +19,16 @@ from .params import Train
 
 
 @tunable("hidden_units", "dropout", apps=("train",))
-def build_model(hidden_units=Model.hidden_units, dropout=Main.dropout):
+@tunable("batch_norm", apps="train")
+def build_model(hidden_units=Model.hidden_units, dropout=Main.dropout, batch_norm: bool = True):
     """Build the model using centralized parameters."""
-    print("build_model", hidden_units, dropout)
+    print("build_model", hidden_units, dropout, batch_norm)
     return "model"
 
 
-@tunable("epochs", "batch_size", "optimizer", apps=("train",))
-def train(epochs=Train.epochs, batch_size=Train.batch_size, optimizer=Train.optimizer):
+@tunable("epochs", "batch_size", apps=("train",))
+@tunable("optimizer", namespace="train", apps="train")
+def train(epochs=Train.epochs, batch_size=Train.batch_size, optimizer: Literal["adam", "sgd"] = "adam"):
     """Train the model using centralized parameters."""
     print("train", epochs, batch_size, optimizer)
 

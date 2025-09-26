@@ -126,7 +126,7 @@ def tunable(
                     section = _resolve_nested_section(app_cfg, ns)
                     if section is not None:
                         data = section if isinstance(section, dict) else section.model_dump()
-                        filtered.update({k: v for k, v in data.items() if k in sig.parameters})
+                        filtered.update({k: v for k, v in data.items() if k in sig.parameters and k not in kwargs})
                 return fn(*args, **filtered, **kwargs)
 
             return fn(*args, **kwargs)

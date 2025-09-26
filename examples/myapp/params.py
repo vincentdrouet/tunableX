@@ -40,7 +40,6 @@ class Train(Main):
 
     epochs: int = Field(10, ge=1, description="Number of training epochs")
     batch_size: int = Field(32, ge=1, description="Training batch size")
-    optimizer: Literal["adam", "sgd"] = Field("adam", description="Optimizer choice")
 
 
 class Serve(Main):
