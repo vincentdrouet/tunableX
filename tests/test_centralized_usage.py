@@ -29,8 +29,8 @@ def test_centralized_pipeline_file_plus_overrides(tmp_path, run_example):
     cfg = tmp_path / "train_config.json"
     cfg.write_text(
         json.dumps({
-            "dropout": 0.2,
             "model": {
+                "dropout": 0.2,
                 "hidden_units": 256,
                 "preprocess": {"dropna": False, "normalize": "minmax", "clip_outliers": 2.5},
             },
@@ -39,7 +39,7 @@ def test_centralized_pipeline_file_plus_overrides(tmp_path, run_example):
     )
     code, out, err = run_example(
         "examples/jsonargparse_app/train_jsonarg_params.py",
-        ["--config", str(cfg), "--train.epochs", "50", "--model.hidden_units", "512", "--dropout", "0.15"],
+        ["--config", str(cfg), "--train.epochs", "50", "--model.hidden_units", "512", "--model.dropout", "0.15"],
     )
     assert code == 0, err
     assert "build_model 512 0.15" in out

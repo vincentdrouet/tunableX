@@ -18,13 +18,14 @@ from tunablex import TunableParamMeta
 class Main(metaclass=TunableParamMeta):
     """Root for centralized tunable namespaces ("main")."""
 
-    dropout: float = Field(0.2, ge=0.0, le=1.0, description="Dropout probability")
+    root_param: str = Field("default", description="A root-level parameter")
 
 
 class Model(Main):
     """Model hyper-parameters under the "model" namespace."""
 
     hidden_units: int = Field(128, ge=1, description="Number of hidden units")
+    dropout: float = Field(0.2, ge=0.0, le=1.0, description="Dropout probability")
 
 
 class Preprocess(Model):
