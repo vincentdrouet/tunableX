@@ -15,6 +15,7 @@ from typing import get_args
 from typing import get_origin
 
 from pydantic import BaseModel
+from pydantic import Field
 
 from .io import load_structured_config
 from .runtime import make_app_config_for
@@ -22,6 +23,7 @@ from .runtime import make_app_config_for_entry
 
 if TYPE_CHECKING:
     from jsonargparse import ArgumentParser
+    from jsonargparse._core import ArgumentGroup
 
 
 def _help_with_default(fld) -> str | None:
@@ -51,34 +53,37 @@ def add_flags_from_model(parser: ArgumentParser, app_config_model) -> None:
     def is_model_type(ann) -> bool:
         return isinstance(ann, type) and issubclass(ann, BaseModel)
 
-    def add_section_flags(display_prefix: str, dest_prefix: str, model_type: type[BaseModel]) -> None:
-        grp = parser.add_argument_group(display_prefix)
-        for name, fld in model_type.model_fields.items():
-            ann = fld.annotation
+    def add_section_flags(section_name: str, model_type: type[BaseModel]) -> None:
+        grp = parser.add_argument_group(section_name)
+        for name, field in model_type.model_fields.items():
+            ann = field.annotation
             # Recurse into nested models
             if is_model_type(ann):
-                add_section_flags(f"{display_prefix}.{name}", f"{dest_prefix}__{name}", ann)
-                continue
-            help_text = _help_with_default(fld)
-            flag = f"--{display_prefix}.{name}"
-            dest = f"TX__{dest_prefix}__{name}"
-            if get_origin(ann) is Literal:
-                grp.add_argument(flag, choices=[*get_args(ann)], dest=dest, help=help_text, default=SUPPRESS)
-            elif ann is bool:
-                grp.add_argument(flag, action=BooleanOptionalAction, dest=dest, help=help_text, default=SUPPRESS)
-            elif ann in (int, float, str):
-                grp.add_argument(flag, type=ann, dest=dest, help=help_text, default=SUPPRESS)
-            elif ann is Path:
-                grp.add_argument(flag, type=str, dest=dest, help=help_text, default=SUPPRESS)
+                add_section_flags(f"{section_name}.{name}", ann)
             else:
-                grp.add_argument(flag, type=str, dest=dest, help=help_text, default=SUPPRESS)
+                add_field_flag(name=f"{section_name}.{name}", ann=ann, field=field, grp=grp)
+
+    def add_field_flag(name: str, ann: type, field: Field, grp: ArgumentGroup | ArgumentParser):
+        help_text = _help_with_default(field)
+        flag = f"--{name}"
+        dest = f"TX__{name.replace('.', '__')}"
+        if get_origin(ann) is Literal:
+            grp.add_argument(flag, choices=[*get_args(ann)], dest=dest, help=help_text, default=SUPPRESS)
+        elif ann is bool:
+            grp.add_argument(flag, action=BooleanOptionalAction, dest=dest, help=help_text, default=SUPPRESS)
+        elif ann in (int, float, str):
+            grp.add_argument(flag, type=ann, dest=dest, help=help_text, default=SUPPRESS)
+        elif ann is Path:
+            grp.add_argument(flag, type=str, dest=dest, help=help_text, default=SUPPRESS)
+        else:
+            grp.add_argument(flag, type=str, dest=dest, help=help_text, default=SUPPRESS)
 
     for section_name, section_field in app_config_model.model_fields.items():
-        section_model = section_field.annotation
-        if not (isinstance(section_model, type) and issubclass(section_model, BaseModel)):
-            continue
-        display_section = section_name.replace("__", ".")
-        add_section_flags(display_section, section_name, section_model)
+        ann = section_field.annotation
+        if is_model_type(ann):
+            add_section_flags(section_name, ann)
+        else:  # Root level
+            add_field_flag(name=section_name, ann=ann, field=section_field, grp=parser)
 
 
 def add_flags_by_app(parser: ArgumentParser, app: str):
@@ -142,9 +147,12 @@ def collect_overrides(args, app_config_model) -> dict:
 
     for section_name, section_field in app_config_model.model_fields.items():
         section_model = section_field.annotation
-        if not (isinstance(section_model, type) and issubclass(section_model, BaseModel)):
-            continue
-        walk_section(section_name, [section_name.replace("__", "_")], section_model)
+        if is_model_type(section_model):
+            walk_section(section_name, [section_name.replace("__", "_")], section_model)
+        else:  # Root level
+            dest = f"TX__{section_name}"
+            if hasattr(args, dest) and (val := getattr(args, dest)) is not None:
+                overrides[section_name] = val
 
     return overrides
 

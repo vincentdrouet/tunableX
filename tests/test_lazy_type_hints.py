@@ -28,9 +28,9 @@ def test_lazy_type_hints_ignores_nontunable_annotations():
     assert sample()[0] == 1
 
     # The registry should contain only field 'a' for this namespace.
-    entry = REGISTRY.by_namespace.get("lazytest.func")
+    entry = REGISTRY.entry_dict.get("lazytest.func")
     assert entry is not None, "Namespace not registered"
-    assert set(entry.model.model_fields.keys()) == {"a"}
+    assert set(entry.fields.keys()) == {"a"}
 
     # Building a config model for this namespace should succeed and produce defaults.
     AppConfig = REGISTRY.build_config(["lazytest.func"])  # noqa: N806
