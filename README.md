@@ -3,9 +3,14 @@
 </p>
 # tunableX
 
-Function-first **tunable parameters** for Python apps — with:
+Function-first **tunable parameters** for Generated flags look like:
+```
+--debug --model.hidden_units --model.dropout --train.epochs --train.batch_size --train.optimizer
+```
+Root-level parameters (from `Main` class or no namespace) appear directly as `--param`, while nested parameters use dotted notation. Boolean flags support `--no-...` negation via `jsonargparse`'s `BooleanOptionalAction`.n apps — with:
 
 - **Ergonomic @tunable decorator** (declare per‑function user parameters right where they live).
+- **Centralized parameter classes** (`TunableParameters`) for a single source of truth with inheritance-based namespaces.
 - **Automatic Pydantic models → JSON & JSON Schema** (rich defaults, validation constraints, literals, Paths, etc.).
 - **Two composition strategies**:
   - By **app tags** (`apps=("train", "serve", ...)`) for explicit executable groupings.
@@ -26,6 +31,8 @@ pip install tunablex  # (or your project env)
 ## Quick Tour
 
 ### 1. Declare tunables
+
+**Option A: Direct decoration (explicit namespaces)**
 ```python
 from typing import Literal
 from pydantic import Field
@@ -42,7 +49,43 @@ def train(epochs: int = Field(10, ge=1, description="Epochs"),
           optimizer: Literal["adam", "sgd"] = Field("adam", description="Optimizer")):
     ...
 ```
-Nested namespaces are supported (e.g. `namespace="model.preprocess"`).
+
+**Option B: Centralized parameters (inheritance-based namespaces)**
+```python
+from typing import Literal
+from pydantic import Field
+from tunablex import tunable, TunableParameters
+
+# Define your parameter schema once
+class Main(TunableParameters):
+    """Root-level parameters (appear as --param in CLI, at JSON root)."""
+    debug: bool = Field(False, description="Enable debug mode")
+
+class Model(Main):
+    """Model parameters (--model.param, under 'model' in JSON)."""
+    hidden_units: int = Field(128, ge=1, description="Hidden units")
+    dropout: float = Field(0.2, ge=0.0, le=1.0, description="Dropout")
+
+class Train(Main):
+    """Training parameters (--train.param, under 'train' in JSON)."""
+    epochs: int = Field(10, ge=1, description="Epochs")
+    batch_size: int = Field(32, ge=1, description="Batch size")
+    optimizer: Literal["adam", "sgd"] = Field("adam", description="Optimizer")
+
+# Use the centralized parameters in your functions
+@tunable("hidden_units", "dropout", apps=("train",))
+def build_model(hidden_units=Model.hidden_units, dropout=Model.dropout, debug=Main.debug):
+    if debug:
+        print(f"Building model: {hidden_units} units, {dropout} dropout")
+    ...
+
+@tunable("epochs", "batch_size", "optimizer", apps=("train",))
+def train(epochs=Train.epochs, batch_size=Train.batch_size, optimizer=Train.optimizer):
+    print(f"Training: {epochs} epochs, batch {batch_size}, optimizer {optimizer}")
+    ...
+```
+
+The centralized approach provides a **single source of truth** for your parameters—define once, use everywhere! The class hierarchy automatically determines namespaces: `Model(Main)` creates the "model" namespace, and parameters from `Main` appear at the root level.
 
 ### 2. Compose a config model (Explicit App Tags)
 ```python
@@ -134,6 +177,7 @@ This precedence is verified by the test suite (`tests/test_overrides.py`).
 ---
 ## API Reference (Exports)
 - Decorator: `tunable`
+- Centralized parameters: `TunableParameters` (base class for inheritance-based namespaces)
 - Composition (apps): `make_app_config_for`, `schema_for_apps`, `defaults_for_apps`, `load_app_config`
 - Composition (entry): `make_app_config_for_entry`, `schema_by_entry_ast`, `load_config_for_entry`
 - Schema output: `write_schema`
@@ -152,9 +196,11 @@ Benefits:
 
 ---
 ## Examples Directory
-- `examples/myapp/pipeline.py` – shared tunable functions.
+- `examples/myapp/pipeline.py` – shared tunable functions (traditional approach).
+- `examples/myapp/params.py` + `pipeline_params.py` – centralized `TunableParameters` approach.
 - `examples/argparse_app/train_app.py` – classic app‑tag flow.
 - `examples/jsonargparse_app/train_jsonarg_app.py` – jsonargparse + tags.
+- `examples/jsonargparse_app/train_jsonarg_params.py` – jsonargparse + centralized parameters.
 - `examples/argparse_trace/train_trace.py` – entrypoint static analysis with schema generation.
 - `examples/jsonargparse_trace/train_jsonarg_trace.py` – jsonargparse + static analysis.
 - `examples/trace_generate_schema.py` – write schema + defaults to disk (AST based).
@@ -167,6 +213,22 @@ pytest -q
 ---
 ## Philosophy
 Keep tunable definition *close to the logic*; avoid giant central configs. Let the decorator accumulate structure automatically while remaining explicit and type‑checked. Provide zero‑execution schema generation so packaging, documentation, and deployment pipelines stay safe and reproducible.
+
+---
+## Contributors
+
+Thanks to all the people who have contributed to tunableX:
+
+- **Jacques PAPPER** (@jackpap) - Original author and maintainer  
+- **Vincent Drouet** (@vincentdrouet) - Core contributor
+
+### AI Development Assistance
+- **Claude Sonnet 4** - implementation
+- **ChatGPT 5** - implementation
+
+See [CONTRIBUTORS.md](CONTRIBUTORS.md) for more details.
+
+We welcome contributions! Feel free to open issues, submit PRs, or reach out with ideas.
 
 ---
 ## License
