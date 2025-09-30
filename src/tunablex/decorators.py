@@ -10,7 +10,6 @@ import functools
 import inspect
 from typing import TYPE_CHECKING
 from typing import Any
-from typing import Literal
 
 from pydantic.fields import FieldInfo
 
@@ -60,8 +59,7 @@ def _resolve_nested_section(cfg_model: BaseModel, dotted_ns: str):
 def tunable(
     *include: str,
     namespace: str = "",
-    mode: Literal["include", "exclude"] = "include",
-    exclude: Iterable[str] | None = None,
+    exclude: str | Iterable[str] = (),
     apps: str | Iterable[str] = (),
 ):
     """Mark a function's selected parameters as user-tunable.
@@ -72,7 +70,10 @@ def tunable(
     - apps: optional tags to group functions per executable/app.
     """
     include_set = set(include or ())
-    exclude_set = set(exclude or ())
+    exclude_set = set(exclude)
+    if include_set and exclude_set:
+        msg = "Cannot pass both `include` and `exclude` arguments."
+        raise ValueError(msg)
     apps = (apps,) if isinstance(apps, str) else apps
 
     def decorator(fn):
@@ -94,7 +95,7 @@ def tunable(
                 continue
             if include_set:
                 selected = name in include_set
-            elif mode == "exclude" and exclude_set:
+            elif exclude_set:
                 selected = (p.default is not inspect._empty) and (name not in exclude_set)
             else:
                 selected = p.default is not inspect._empty
