@@ -70,7 +70,7 @@ def tunable(
     - apps: optional tags to group functions per executable/app.
     """
     include_set = set(include or ())
-    exclude_set = set(exclude)
+    exclude_set = {exclude} if isinstance(exclude, str) else set(exclude)
     if include_set and exclude_set:
         msg = "Cannot pass both `include` and `exclude` arguments."
         raise ValueError(msg)
