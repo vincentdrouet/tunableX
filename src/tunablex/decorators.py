@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import functools
 import inspect
+import re
 from typing import TYPE_CHECKING
 from typing import Any
 
@@ -23,6 +24,11 @@ if TYPE_CHECKING:
     from pydantic import BaseModel
 
 
+def _pascalcase_to_snake_case(ns: str) -> str:
+    """Convert a namespace name from PascalCase to snake_case."""
+    return re.sub(r"(?<=[a-z])(?=[A-Z])|(?<=[A-Z])(?=[A-Z][a-z])", "_", ns).lower()
+
+
 class TunableParamMeta(type):
     """A metaclass that allows to retrieve namespace and type annotation at runtime."""
 
@@ -30,9 +36,10 @@ class TunableParamMeta(type):
         parent = cls.mro()[1]
         if parent is object:
             return ""
+        ns = _pascalcase_to_snake_case(super().__getattribute__("__name__"))
         if parent._namespace():
-            return f"{parent._namespace()}.{super().__getattribute__('__name__').lower()}"
-        return super().__getattribute__("__name__").lower()
+            return f"{parent._namespace()}.{ns}"
+        return ns
 
     def __getattribute__(cls, name: str):
         if name.startswith("__"):
