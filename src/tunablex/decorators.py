@@ -118,7 +118,7 @@ def tunable(
             ns_dict.update({name: (typ, default)})
 
         for ns, fields in namespaces.items():
-            REGISTRY.register(TunableEntry(fn=fn, fields=fields, sig=sig, namespace=ns, apps=set(apps)))
+            REGISTRY.register(TunableEntry(fn=fn, fields=fields, namespace=ns, apps=set(apps)))
 
         @functools.wraps(fn)
         def wrapper(*args, cfg: BaseModel | dict | None = None, **kwargs):

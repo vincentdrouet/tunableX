@@ -18,21 +18,19 @@ from pydantic import Field
 from pydantic import ValidationError
 from pydantic import create_model
 
-if TYPE_CHECKING:  # typing-only imports
-    import inspect
+if TYPE_CHECKING:
     from collections.abc import Iterable
 
 
 @dataclass
 class TunableEntry:
-    """A registered tunable function and its Pydantic model."""
+    """A registered tunable function and its default fields."""
 
     fields: dict[str, tuple[str, Field | Any]]
     """The fields of the model.
     The keys are the parameters names, and the items are the type (as a string) and the Field or the default value."""
 
     fn: Any
-    sig: inspect.Signature
     namespace: str
     apps: set[str] = field(default_factory=set)
 
