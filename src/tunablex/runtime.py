@@ -6,6 +6,7 @@ import json
 from pathlib import Path
 from typing import TYPE_CHECKING
 
+import yaml
 from pydantic import BaseModel
 from pydantic import ValidationError
 
@@ -99,6 +100,8 @@ def write_schema(prefix: str, schema: dict, defaults: dict | None = None):
     Path(f"{prefix}.schema.json").write_text(json.dumps(schema, indent=2, default=str))
     if defaults is not None:
         Path(f"{prefix}.json").write_text(json.dumps(defaults, indent=2, default=str))
+        with Path(f"{prefix}.yml").open("w") as f:
+            yaml.dump(defaults, f, default_flow_style=False)
 
 
 def make_app_config_for(app: str) -> BaseModel:
