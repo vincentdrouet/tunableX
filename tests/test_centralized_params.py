@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import json
-from pathlib import Path
 
 import pytest
 
@@ -51,3 +50,28 @@ def test_file_plus_overrides_with_centralized_params(tmp_path, run_example):
     assert code == 0, err
     assert "build_model 512 0.25 False newRoot" in out
     assert "train 50 8 sgd" in out
+
+
+@pytest.mark.skipif(pytest.importorskip("jsonargparse") is None, reason="jsonargparse not installed")
+def test_other_argnames_from_centralized_params(tmp_path, run_example):
+    cfg = tmp_path / "train_config.json"
+    cfg.write_text(
+        json.dumps({
+            "batch_norm": False,
+            "root_param": "newRoot",
+            "model": {
+                "dropout": 0.15,
+                "hidden_units": 256,
+                "preprocess": {"dropna": False, "normalize": "minmax", "clip_outliers": 2.5},
+            },
+            "train": {"epochs": 5, "batch_size": 8, "optimizer": "sgd"},
+        })
+    )
+    code, out, err = run_example(
+        "examples/jsonargparse_app/train_jsonarg_params.py",
+        ["--config", str(cfg)],
+    )
+    assert code == 0, err
+    assert "build_model 256 0.15 False newRoot" in out
+    assert "train 5 8 sgd" in out
+    assert "other_train 5 8 sgd" in out

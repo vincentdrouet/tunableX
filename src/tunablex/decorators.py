@@ -47,7 +47,7 @@ class TunableParamMeta(type):
         try:
             annotations = super().__annotations__
             typ = annotations[name]
-            return super().__getattribute__(name), typ, TunableParamMeta._namespace(cls)
+            return super().__getattribute__(name), typ, TunableParamMeta._namespace(cls), name
         except Exception:  # noqa: BLE001
             return super().__getattribute__(name)
 
@@ -97,6 +97,7 @@ def tunable(
 
         ns = namespace
         namespaces = {}
+        ref_names = {}
         for name, p in sig.parameters.items():
             if p.kind in (p.VAR_POSITIONAL, p.VAR_KEYWORD):
                 continue
@@ -112,7 +113,12 @@ def tunable(
             default = p.default if p.default is not inspect._empty else ...
             if isinstance(default, tuple) and isinstance(default[0], FieldInfo):
                 # The default value is a pydantic Field; retrieve type and namespace
-                default, typ_str, ns = default
+                default, typ_str, ns, ref_name = default
+                if ref_name != name:
+                    # Store the reference name for later look-up
+                    # This allows to have different local names for the same global parameter
+                    ref_names[name] = ref_name
+                    name = ref_name
             typ = _eval_ann(typ_str)
             ns_dict = namespaces.setdefault(ns, {})
             ns_dict.update({name: (typ, default)})
@@ -124,7 +130,12 @@ def tunable(
         def wrapper(*args, cfg: BaseModel | dict | None = None, **kwargs):
             if cfg is not None:
                 data = cfg if isinstance(cfg, dict) else cfg.model_dump()
-                filtered = {k: v for k, v in data.items() if k in sig.parameters}
+                filtered = {
+                    # Get the tunable arguments from the config and retrieve the original name
+                    k: data[ref_names.get(k, k)]
+                    for k in sig.parameters
+                    if ref_names.get(k, k) in data and k not in kwargs
+                }
                 return fn(*args, **filtered, **kwargs)
 
             app_cfg = _active_cfg.get()
@@ -134,7 +145,12 @@ def tunable(
                     section = _resolve_nested_section(app_cfg, ns)
                     if section is not None:
                         data = section if isinstance(section, dict) else section.model_dump()
-                        filtered.update({k: v for k, v in data.items() if k in sig.parameters and k not in kwargs})
+                        filtered.update({
+                            # Get the tunable arguments from the config and retrieve the original name
+                            k: data[ref_names.get(k, k)]
+                            for k in sig.parameters
+                            if ref_names.get(k, k) in data and k not in kwargs
+                        })
                 return fn(*args, **filtered, **kwargs)
 
             return fn(*args, **kwargs)

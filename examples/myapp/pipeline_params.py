@@ -18,7 +18,7 @@ from .params import Serve
 from .params import Train
 
 
-@tunable("hidden_units", "dropout", apps=("train",))
+@tunable("hidden_units", "dropout", apps="train")
 @tunable("batch_norm", apps="train")
 @tunable("root_param", apps=("train"))
 def build_model(
@@ -29,11 +29,18 @@ def build_model(
     return "model"
 
 
-@tunable("epochs", "batch_size", apps=("train",))
+@tunable("epochs", "batch_size", apps="train")
 @tunable("optimizer", namespace="train", apps="train")
 def train(epochs=Train.epochs, batch_size=Train.batch_size, optimizer: Literal["adam", "sgd"] = "adam"):
     """Train the model using centralized parameters."""
     print("train", epochs, batch_size, optimizer)
+
+
+@tunable("nb_epochs", "other_batch_size", apps="train")
+@tunable("optimizer", namespace="train", apps="train")
+def other_train(nb_epochs=Train.epochs, other_batch_size=Train.batch_size, optimizer: Literal["adam", "sgd"] = "adam"):
+    """Train the model using centralized parameters with other argument names than the reference ones."""
+    print("other_train", nb_epochs, other_batch_size, optimizer)
 
 
 @tunable("dropna", "normalize", "clip_outliers", apps=("train", "serve"))
@@ -45,7 +52,7 @@ def preprocess(
     return "clean"
 
 
-@tunable("port", "workers", apps=("serve",))
+@tunable("port", "workers", apps="serve")
 def serve_api(port=Serve.port, workers=Serve.workers):
     print("serve_api", port, workers)
 
@@ -55,6 +62,7 @@ def train_main():
     preprocess("/data/train.csv")
     build_model()
     train()
+    other_train()
 
 
 def serve_main():
