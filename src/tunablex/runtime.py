@@ -101,7 +101,7 @@ def write_schema(prefix: str, schema: dict, defaults: dict | None = None):
     if defaults is not None:
         Path(f"{prefix}.json").write_text(json.dumps(defaults, indent=2, default=str))
         with Path(f"{prefix}.yml").open("w") as f:
-            yaml.dump(defaults, f, default_flow_style=False)
+            yaml.dump(defaults, f, default_flow_style=False, sort_keys=False)
 
 
 def make_app_config_for(app: str) -> BaseModel:
