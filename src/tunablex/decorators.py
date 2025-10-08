@@ -8,9 +8,9 @@ from __future__ import annotations
 
 import functools
 import inspect
+import re
 from typing import TYPE_CHECKING
 from typing import Any
-from typing import Literal
 
 from pydantic.fields import FieldInfo
 
@@ -24,6 +24,11 @@ if TYPE_CHECKING:
     from pydantic import BaseModel
 
 
+def _pascalcase_to_snake_case(ns: str) -> str:
+    """Convert a namespace name from PascalCase to snake_case."""
+    return re.sub(r"(?<=[a-z])(?=[A-Z])|(?<=[A-Z])(?=[A-Z][a-z])", "_", ns).lower()
+
+
 class TunableParamMeta(type):
     """A metaclass that allows to retrieve namespace and type annotation at runtime."""
 
@@ -31,9 +36,10 @@ class TunableParamMeta(type):
         parent = cls.mro()[1]
         if parent is object:
             return ""
+        ns = _pascalcase_to_snake_case(super().__getattribute__("__name__"))
         if parent._namespace():
-            return f"{parent._namespace()}.{super().__getattribute__('__name__').lower()}"
-        return super().__getattribute__("__name__").lower()
+            return f"{parent._namespace()}.{ns}"
+        return ns
 
     def __getattribute__(cls, name: str):
         if name.startswith("__"):
@@ -41,7 +47,7 @@ class TunableParamMeta(type):
         try:
             annotations = super().__annotations__
             typ = annotations[name]
-            return super().__getattribute__(name), typ, TunableParamMeta._namespace(cls)
+            return super().__getattribute__(name), typ, TunableParamMeta._namespace(cls), name
         except Exception:  # noqa: BLE001
             return super().__getattribute__(name)
 
@@ -60,8 +66,7 @@ def _resolve_nested_section(cfg_model: BaseModel, dotted_ns: str):
 def tunable(
     *include: str,
     namespace: str = "",
-    mode: Literal["include", "exclude"] = "include",
-    exclude: Iterable[str] | None = None,
+    exclude: str | Iterable[str] = (),
     apps: str | Iterable[str] = (),
 ):
     """Mark a function's selected parameters as user-tunable.
@@ -72,7 +77,10 @@ def tunable(
     - apps: optional tags to group functions per executable/app.
     """
     include_set = set(include or ())
-    exclude_set = set(exclude or ())
+    exclude_set = {exclude} if isinstance(exclude, str) else set(exclude)
+    if include_set and exclude_set:
+        msg = "Cannot pass both `include` and `exclude` arguments."
+        raise ValueError(msg)
     apps = (apps,) if isinstance(apps, str) else apps
 
     def decorator(fn):
@@ -89,12 +97,13 @@ def tunable(
 
         ns = namespace
         namespaces = {}
+        ref_names = {}
         for name, p in sig.parameters.items():
             if p.kind in (p.VAR_POSITIONAL, p.VAR_KEYWORD):
                 continue
             if include_set:
                 selected = name in include_set
-            elif mode == "exclude" and exclude_set:
+            elif exclude_set:
                 selected = (p.default is not inspect._empty) and (name not in exclude_set)
             else:
                 selected = p.default is not inspect._empty
@@ -104,19 +113,29 @@ def tunable(
             default = p.default if p.default is not inspect._empty else ...
             if isinstance(default, tuple) and isinstance(default[0], FieldInfo):
                 # The default value is a pydantic Field; retrieve type and namespace
-                default, typ_str, ns = default
+                default, typ_str, ns, ref_name = default
+                if ref_name != name:
+                    # Store the reference name for later look-up
+                    # This allows to have different local names for the same global parameter
+                    ref_names[name] = ref_name
+                    name = ref_name
             typ = _eval_ann(typ_str)
             ns_dict = namespaces.setdefault(ns, {})
             ns_dict.update({name: (typ, default)})
 
         for ns, fields in namespaces.items():
-            REGISTRY.register(TunableEntry(fn=fn, fields=fields, sig=sig, namespace=ns, apps=set(apps)))
+            REGISTRY.register(TunableEntry(fn=fn, fields=fields, namespace=ns, apps=set(apps)))
 
         @functools.wraps(fn)
         def wrapper(*args, cfg: BaseModel | dict | None = None, **kwargs):
             if cfg is not None:
                 data = cfg if isinstance(cfg, dict) else cfg.model_dump()
-                filtered = {k: v for k, v in data.items() if k in sig.parameters}
+                filtered = {
+                    # Get the tunable arguments from the config and retrieve the original name
+                    k: data[ref_names.get(k, k)]
+                    for k in sig.parameters
+                    if ref_names.get(k, k) in data and k not in kwargs
+                }
                 return fn(*args, **filtered, **kwargs)
 
             app_cfg = _active_cfg.get()
@@ -126,7 +145,12 @@ def tunable(
                     section = _resolve_nested_section(app_cfg, ns)
                     if section is not None:
                         data = section if isinstance(section, dict) else section.model_dump()
-                        filtered.update({k: v for k, v in data.items() if k in sig.parameters and k not in kwargs})
+                        filtered.update({
+                            # Get the tunable arguments from the config and retrieve the original name
+                            k: data[ref_names.get(k, k)]
+                            for k in sig.parameters
+                            if ref_names.get(k, k) in data and k not in kwargs
+                        })
                 return fn(*args, **filtered, **kwargs)
 
             return fn(*args, **kwargs)
