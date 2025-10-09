@@ -113,7 +113,7 @@ class TunableRegistry:
         model_name = f"{node.fullpath.title().replace('.', '').replace('_', '')}Config"
         return create_model(model_name, **field_defs)  # type: ignore[return-value]
 
-    def build_config(self, namespaces: Iterable[str]) -> BaseModel:
+    def build_config(self, namespaces: Iterable[str]) -> type[BaseModel]:
         """Create a top-level AppConfig model from selected namespaces.
 
         - Dotted namespaces are nested (e.g., "a.b.c" becomes cfg.a.b.c).
