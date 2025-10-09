@@ -18,14 +18,18 @@ from .params import Serve
 from .params import Train
 
 
-@tunable("hidden_units", "dropout", apps="train")
+@tunable("hidden_units", "dropout", "agg", apps="train")
 @tunable("batch_norm", apps="train")
 @tunable("root_param", apps=("train"))
 def build_model(
-    hidden_units=Model.hidden_units, dropout=Model.dropout, batch_norm: bool = True, root_param=Main.root_param
+    hidden_units=Model.hidden_sizes,
+    dropout=Model.dropout,
+    agg=Model.agg,
+    batch_norm: bool = True,
+    root_param=Main.root_param,
 ):
     """Build the model using centralized parameters."""
-    print("build_model", hidden_units, dropout, batch_norm, root_param)
+    print("build_model", hidden_units, dropout, agg, batch_norm, root_param)
     return "model"
 
 

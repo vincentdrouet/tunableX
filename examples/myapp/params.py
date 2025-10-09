@@ -8,6 +8,7 @@ Train(Main) -> "train"
 
 from __future__ import annotations
 
+from collections.abc import Sequence  # noqa: TC003
 from typing import Literal
 
 from pydantic import Field
@@ -24,8 +25,9 @@ class Main(metaclass=TunableParamMeta):
 class Model(Main):
     """Model hyper-parameters under the "model" namespace."""
 
-    hidden_units: int = Field(128, ge=1, description="Number of hidden units")
+    hidden_sizes: Sequence[int] = Field((128, 128), description="Sizes of hidden layers")
     dropout: float = Field(0.2, ge=0.0, le=1.0, description="Dropout probability")
+    agg: Literal["sum", "concat"] = Field("sum", description="Aggregation method")
 
 
 class Preprocess(Model):

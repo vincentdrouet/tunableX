@@ -9,8 +9,9 @@ from __future__ import annotations
 import functools
 import inspect
 import re
+import sys
 from typing import TYPE_CHECKING
-from typing import Any
+from typing import get_type_hints
 
 from pydantic.fields import FieldInfo
 
@@ -45,8 +46,8 @@ class TunableParamMeta(type):
         if name.startswith("__"):
             return super().__getattribute__(name)
         try:
-            annotations = super().__annotations__
-            typ = annotations[name]
+            globalsns = vars(sys.modules[cls.__module__])
+            typ = get_type_hints(cls, globalns=globalsns)[name]
             return super().__getattribute__(name), typ, TunableParamMeta._namespace(cls), name
         except Exception:  # noqa: BLE001
             return super().__getattribute__(name)
@@ -85,16 +86,6 @@ def tunable(
 
     def decorator(fn):
         sig = inspect.signature(fn)
-        raw_anns = inspect.get_annotations(fn, eval_str=False)
-
-        def _eval_ann(value: Any) -> Any:
-            if isinstance(value, str):  # deferred annotation (from __future__ import annotations)
-                try:
-                    return eval(value, fn.__globals__, {})  # noqa: S307 - controlled eval
-                except (NameError, AttributeError, SyntaxError):  # pragma: no cover - fallback path
-                    return Any
-            return value
-
         ns = namespace
         namespaces = {}
         ref_names = {}
@@ -109,17 +100,18 @@ def tunable(
                 selected = p.default is not inspect._empty
             if not selected:
                 continue
-            typ_str = raw_anns.get(name, Any)
             default = p.default if p.default is not inspect._empty else ...
             if isinstance(default, tuple) and isinstance(default[0], FieldInfo):
                 # The default value is a pydantic Field; retrieve type and namespace
-                default, typ_str, ns, ref_name = default
+                default, typ, ns, ref_name = default
+                default.title = ref_name  # Set the title manually (preferred to Pydantic's default title)
                 if ref_name != name:
                     # Store the reference name for later look-up
                     # This allows to have different local names for the same global parameter
                     ref_names[name] = ref_name
                     name = ref_name
-            typ = _eval_ann(typ_str)
+            else:
+                typ = get_type_hints(fn)[name]
             ns_dict = namespaces.setdefault(ns, {})
             ns_dict.update({name: (typ, default)})
 
