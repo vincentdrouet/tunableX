@@ -87,7 +87,7 @@ class TunableRegistry:
     def namespaces_for_apps(self, apps: Iterable[str]) -> list[str]:
         """Return namespaces that have at least one of the given app tags."""
         want = set(apps)
-        return [ns for ns, e in self.entry_dict.items() if e.apps & want]
+        return [ns for ns, e in self.entry_dict.items() if (e.apps & want or not e.apps)]
 
     def build_node_model(self, node: _Node) -> type[BaseModel]:
         """Recursively build Pydantic models from the tree."""
