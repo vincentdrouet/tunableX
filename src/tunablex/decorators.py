@@ -11,6 +11,7 @@ import inspect
 import re
 import sys
 from typing import TYPE_CHECKING
+from typing import Any
 from typing import get_type_hints
 
 from pydantic.fields import FieldInfo
@@ -43,14 +44,11 @@ class TunableParamMeta(type):
         return ns
 
     def __getattribute__(cls, name: str):
-        if name.startswith("__"):
-            return super().__getattribute__(name)
-        try:
+        if isinstance(value := super().__getattribute__(name), FieldInfo):
             globalsns = vars(sys.modules[cls.__module__])
-            typ = get_type_hints(cls, globalns=globalsns)[name]
-            return super().__getattribute__(name), typ, TunableParamMeta._namespace(cls), name
-        except Exception:  # noqa: BLE001
-            return super().__getattribute__(name)
+            typ = get_type_hints(cls, globalns=globalsns).get(name, Any)
+            return value, typ, TunableParamMeta._namespace(cls), name
+        return value
 
 
 def _resolve_nested_section(cfg_model: BaseModel, dotted_ns: str):
@@ -90,6 +88,9 @@ def tunable(
         namespaces = {}
         ref_names = {}
         for name, p in sig.parameters.items():
+            if name == "mro":
+                msg = "`mro` is a protected name, please use an other name for your tunable parameters."
+                raise ValueError(msg)
             if p.kind in (p.VAR_POSITIONAL, p.VAR_KEYWORD):
                 continue
             if include_set:
@@ -102,16 +103,16 @@ def tunable(
                 continue
             default = p.default if p.default is not inspect._empty else ...
             if isinstance(default, tuple) and isinstance(default[0], FieldInfo):
-                # The default value is a pydantic Field; retrieve type and namespace
+                # The parameter is declared in a TunableParam class; retrieve type, namespace and reference name
                 default, typ, ns, ref_name = default
-                default.title = ref_name  # Set the title manually (preferred to Pydantic's default title)
                 if ref_name != name:
                     # Store the reference name for later look-up
                     # This allows to have different local names for the same global parameter
                     ref_names[name] = ref_name
                     name = ref_name
             else:
-                typ = get_type_hints(fn)[name]
+                typ = inspect.get_annotations(fn, eval_str=False)[name]
+                typ = eval(typ, fn.__globals__) if isinstance(typ, str) else typ
             ns_dict = namespaces.setdefault(ns, {})
             ns_dict.update({name: (typ, default)})
 
