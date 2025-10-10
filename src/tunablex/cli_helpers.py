@@ -8,6 +8,7 @@ from __future__ import annotations
 
 from argparse import SUPPRESS
 from argparse import BooleanOptionalAction
+from collections.abc import Sequence
 from pathlib import Path
 from typing import TYPE_CHECKING
 from typing import Literal
@@ -42,48 +43,50 @@ def _help_with_default(fld) -> str | None:
     return f"(default: {default_str})"
 
 
-def add_flags_from_model(parser: ArgumentParser, app_config_model) -> None:
+def _is_model_type(ann) -> bool:
+    return isinstance(ann, type) and issubclass(ann, BaseModel)
+
+
+def _add_field_flag(name: str, ann: type, field: Field, grp: ArgumentGroup | ArgumentParser):
+    help_text = _help_with_default(field)
+    flag = f"--{name}"
+    dest = f"TX__{name.replace('.', '__')}"
+    if get_origin(ann) is Literal:
+        grp.add_argument(flag, choices=[*get_args(ann)], dest=dest, help=help_text, default=SUPPRESS)
+    elif get_origin(ann) is Sequence or ann in (list, tuple):
+        grp.add_argument(flag, nargs="+", type=get_args(ann)[0], dest=dest, help=help_text, default=SUPPRESS)
+    elif ann is bool:
+        grp.add_argument(flag, action=BooleanOptionalAction, dest=dest, help=help_text, default=SUPPRESS)
+    elif ann in (int, float, str, Path):
+        grp.add_argument(flag, type=ann, dest=dest, help=help_text, default=SUPPRESS)
+    else:
+        grp.add_argument(flag, type=str, dest=dest, help=help_text, default=SUPPRESS)
+
+
+def _add_section_flags(section_name: str, model_type: type[BaseModel], parser: ArgumentParser) -> None:
+    grp = parser.add_argument_group(section_name)
+    for name, field in model_type.model_fields.items():
+        ann = field.annotation
+        # Recurse into nested models
+        if _is_model_type(ann):
+            _add_section_flags(f"{section_name}.{name}", model_type=ann, parser=parser)
+        else:
+            _add_field_flag(name=f"{section_name}.{name}", ann=ann, field=field, grp=grp)
+
+
+def add_flags_from_model(parser: ArgumentParser, app_config_model: type[BaseModel]) -> None:
     """Create flags like --section.field for each tunable in the AppConfig model.
 
     Recurses into nested BaseModel fields to support compounded namespaces.
     Parser defaults are SUPPRESS so we can detect presence via hasattr(args, dest).
     Actual defaults still come from the Pydantic model instance when building the config.
     """
-
-    def is_model_type(ann) -> bool:
-        return isinstance(ann, type) and issubclass(ann, BaseModel)
-
-    def add_section_flags(section_name: str, model_type: type[BaseModel]) -> None:
-        grp = parser.add_argument_group(section_name)
-        for name, field in model_type.model_fields.items():
-            ann = field.annotation
-            # Recurse into nested models
-            if is_model_type(ann):
-                add_section_flags(f"{section_name}.{name}", ann)
-            else:
-                add_field_flag(name=f"{section_name}.{name}", ann=ann, field=field, grp=grp)
-
-    def add_field_flag(name: str, ann: type, field: Field, grp: ArgumentGroup | ArgumentParser):
-        help_text = _help_with_default(field)
-        flag = f"--{name}"
-        dest = f"TX__{name.replace('.', '__')}"
-        if get_origin(ann) is Literal:
-            grp.add_argument(flag, choices=[*get_args(ann)], dest=dest, help=help_text, default=SUPPRESS)
-        elif ann is bool:
-            grp.add_argument(flag, action=BooleanOptionalAction, dest=dest, help=help_text, default=SUPPRESS)
-        elif ann in (int, float, str):
-            grp.add_argument(flag, type=ann, dest=dest, help=help_text, default=SUPPRESS)
-        elif ann is Path:
-            grp.add_argument(flag, type=str, dest=dest, help=help_text, default=SUPPRESS)
-        else:
-            grp.add_argument(flag, type=str, dest=dest, help=help_text, default=SUPPRESS)
-
     for section_name, section_field in app_config_model.model_fields.items():
         ann = section_field.annotation
-        if is_model_type(ann):
-            add_section_flags(section_name, ann)
+        if _is_model_type(ann):
+            _add_section_flags(section_name, model_type=ann, parser=parser)
         else:  # Root level
-            add_field_flag(name=section_name, ann=ann, field=section_field, grp=parser)
+            _add_field_flag(name=section_name, ann=ann, field=section_field, grp=parser)
 
 
 def add_flags_by_app(parser: ArgumentParser, app: str):

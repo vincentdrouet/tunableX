@@ -104,7 +104,7 @@ def write_schema(prefix: str, schema: dict, defaults: dict | None = None):
             yaml.dump(defaults, f, default_flow_style=False, sort_keys=False)
 
 
-def make_app_config_for(app: str) -> BaseModel:
+def make_app_config_for(app: str) -> type[BaseModel]:
     namespaces = REGISTRY.namespaces_for_apps([app])
     return REGISTRY.build_config(namespaces)
 
