@@ -54,6 +54,19 @@ class TunableParams(metaclass=TunableParamsMeta):
     Inherit from this class to declare tunable parameters globally.
     If the class name contains `Params`, it will be removed from the namespace for brevity.
     If the resulting namespace is `main` or `root`, the parameters will be stored at the root level.
+
+    When using several levels of namespaces, it is possible to declare the parameters in a class at the root level
+    and to inherit from this class in the namespace, to avoid having too many indentations in the lower levels.
+
+    Example:
+        # This is root level
+        class AdvancedParams(TunableParams):
+            param1: ...
+            param2: ...
+
+        class GeneralParams(TunableParams):
+            class Advanced(AdvancedParams):
+                pass
     """
 
 

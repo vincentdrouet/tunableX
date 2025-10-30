@@ -22,6 +22,14 @@ class MainParams(TunableParams):
     root_param: str = Field("default", description="A root-level parameter")
 
 
+class PreprocessParams(TunableParams):
+    """Doing so avoids having too many indentations when using several levels of namespaces."""
+
+    dropna: bool = Field(True, description="Drop rows with missing values")
+    normalize: Literal["zscore", "minmax", "none"] = Field("zscore", description="Normalization strategy")
+    clip_outliers: float = Field(3.0, ge=0, le=10, description="Clip values beyond k standard deviations")
+
+
 class ModelParams(TunableParams):
     """Model hyper-parameters under the "model" namespace."""
 
@@ -29,12 +37,8 @@ class ModelParams(TunableParams):
     dropout: float = Field(0.2, ge=0.0, le=1.0, description="Dropout probability")
     agg: Literal["sum", "concat"] = Field("sum", description="Aggregation method")
 
-    class Preprocess(TunableParams):
+    class Preprocess(PreprocessParams):
         """Preprocess options nested under "model.preprocess"."""
-
-        dropna: bool = Field(True, description="Drop rows with missing values")
-        normalize: Literal["zscore", "minmax", "none"] = Field("zscore", description="Normalization strategy")
-        clip_outliers: float = Field(3.0, ge=0, le=10, description="Clip values beyond k standard deviations")
 
 
 class TrainParams(TunableParams):
