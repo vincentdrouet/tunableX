@@ -110,7 +110,7 @@ class TunableRegistry:
             except ValidationError:
                 field_defs[child_name] = (child_model | None, None)
 
-        model_name = f"{node.fullpath.title().replace('.', '').replace('_', '')}Config"
+        model_name = f"{node.fullpath.title().replace('_', '').replace('.', '_')}_Config"
         return create_model(model_name, **field_defs)  # type: ignore[return-value]
 
     def build_config(self, namespaces: Iterable[str]) -> type[BaseModel]:
