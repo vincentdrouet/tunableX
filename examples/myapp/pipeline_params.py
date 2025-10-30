@@ -13,9 +13,10 @@ from tunablex import tunable
 
 from .params import Main
 from .params import Model
-from .params import Preprocess
 from .params import Serve
 from .params import Train
+
+Preprocess = Model.Preprocess
 
 
 @tunable("hidden_units", "dropout", "agg", apps="train")

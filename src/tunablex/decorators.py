@@ -31,24 +31,29 @@ def _pascalcase_to_snake_case(ns: str) -> str:
     return re.sub(r"(?<=[a-z])(?=[A-Z])|(?<=[A-Z])(?=[A-Z][a-z])", "_", ns).lower()
 
 
-class TunableParamMeta(type):
+class TunableParamsMeta(type):
     """A metaclass that allows to retrieve namespace and type annotation at runtime."""
 
     def _namespace(cls) -> str:
-        parent = cls.mro()[1]
-        if parent is object:
-            return ""
-        ns = _pascalcase_to_snake_case(super().__getattribute__("__name__"))
-        if parent._namespace():
-            return f"{parent._namespace()}.{ns}"
+        ns = _pascalcase_to_snake_case(super().__getattribute__("__qualname__"))
+        if ns == "main" or ns == "root":
+            ns = ""
         return ns
 
     def __getattribute__(cls, name: str):
         if isinstance(value := super().__getattribute__(name), FieldInfo):
             globalsns = vars(sys.modules[cls.__module__])
             typ = get_type_hints(cls, globalns=globalsns).get(name, Any)
-            return value, typ, TunableParamMeta._namespace(cls), name
+            return value, typ, TunableParamsMeta._namespace(cls), name
         return value
+
+
+class TunableParams(metaclass=TunableParamsMeta):
+    """A class containing tunable parameters.
+
+    Inherit from this class to declare tunable parameters globally.
+    If the class is named `Main` or `Root`, the parameters will be stored at the root level.
+    """
 
 
 def _resolve_nested_section(cfg_model: BaseModel, dotted_ns: str):
