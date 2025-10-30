@@ -35,7 +35,7 @@ class TunableParamsMeta(type):
     """A metaclass that allows to retrieve namespace and type annotation at runtime."""
 
     def _namespace(cls) -> str:
-        ns = _pascalcase_to_snake_case(super().__getattribute__("__qualname__"))
+        ns = _pascalcase_to_snake_case(super().__getattribute__("__qualname__")).replace("_params", "")
         if ns == "main" or ns == "root":
             ns = ""
         return ns
@@ -52,7 +52,8 @@ class TunableParams(metaclass=TunableParamsMeta):
     """A class containing tunable parameters.
 
     Inherit from this class to declare tunable parameters globally.
-    If the class is named `Main` or `Root`, the parameters will be stored at the root level.
+    If the class name contains `Params`, it will be removed from the namespace for brevity.
+    If the resulting namespace is `main` or `root`, the parameters will be stored at the root level.
     """
 
 

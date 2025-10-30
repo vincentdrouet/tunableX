@@ -16,13 +16,13 @@ from pydantic import Field
 from tunablex import TunableParams
 
 
-class Main(TunableParams):
+class MainParams(TunableParams):
     """Root for centralized tunable namespaces ("main")."""
 
     root_param: str = Field("default", description="A root-level parameter")
 
 
-class Model(TunableParams):
+class ModelParams(TunableParams):
     """Model hyper-parameters under the "model" namespace."""
 
     hidden_sizes: Sequence[int] = Field((128, 128), description="Sizes of hidden layers")
@@ -37,14 +37,14 @@ class Model(TunableParams):
         clip_outliers: float = Field(3.0, ge=0, le=10, description="Clip values beyond k standard deviations")
 
 
-class Train(TunableParams):
+class TrainParams(TunableParams):
     """Training loop parameters under the "train" namespace."""
 
     epochs: int = Field(10, ge=1, description="Number of training epochs")
     batch_size: int = Field(32, ge=1, description="Training batch size")
 
 
-class Serve(TunableParams):
+class ServeParams(TunableParams):
     """Serve loop parameters."""
 
     port: int = Field(8080, ge=1, le=65535, description="HTTP port for serving API")

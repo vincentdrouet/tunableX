@@ -11,23 +11,23 @@ from typing import Literal
 
 from tunablex import tunable
 
-from .params import Main
-from .params import Model
-from .params import Serve
-from .params import Train
+from .params import MainParams
+from .params import ModelParams
+from .params import ServeParams
+from .params import TrainParams
 
-Preprocess = Model.Preprocess
+Preprocess = ModelParams.Preprocess
 
 
 @tunable("hidden_units", "dropout", "agg", apps="train")
 @tunable("batch_norm", apps="train")
 @tunable("root_param", apps=("train"))
 def build_model(
-    hidden_units=Model.hidden_sizes,
-    dropout=Model.dropout,
-    agg=Model.agg,
+    hidden_units=ModelParams.hidden_sizes,
+    dropout=ModelParams.dropout,
+    agg=ModelParams.agg,
     batch_norm: bool = True,
-    root_param=Main.root_param,
+    root_param=MainParams.root_param,
 ):
     """Build the model using centralized parameters."""
     print("build_model", hidden_units, dropout, agg, batch_norm, root_param)
@@ -36,14 +36,16 @@ def build_model(
 
 @tunable("epochs", "batch_size", apps="train")
 @tunable("optimizer", namespace="train", apps="train")
-def train(epochs=Train.epochs, batch_size=Train.batch_size, optimizer: Literal["adam", "sgd"] = "adam"):
+def train(epochs=TrainParams.epochs, batch_size=TrainParams.batch_size, optimizer: Literal["adam", "sgd"] = "adam"):
     """Train the model using centralized parameters."""
     print("train", epochs, batch_size, optimizer)
 
 
 @tunable("nb_epochs", "other_batch_size", apps="train")
 @tunable("optimizer", namespace="train", apps="train")
-def other_train(nb_epochs=Train.epochs, other_batch_size=Train.batch_size, optimizer: Literal["adam", "sgd"] = "adam"):
+def other_train(
+    nb_epochs=TrainParams.epochs, other_batch_size=TrainParams.batch_size, optimizer: Literal["adam", "sgd"] = "adam"
+):
     """Train the model using centralized parameters with other argument names than the reference ones."""
     print("other_train", nb_epochs, other_batch_size, optimizer)
 
@@ -58,7 +60,7 @@ def preprocess(
 
 
 @tunable("port", "workers", apps="serve")
-def serve_api(port=Serve.port, workers=Serve.workers):
+def serve_api(port=ServeParams.port, workers=ServeParams.workers):
     print("serve_api", port, workers)
 
 
