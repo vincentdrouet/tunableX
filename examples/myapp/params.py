@@ -23,7 +23,10 @@ class MainParams(TunableParams):
 
 
 class PreprocessParams(TunableParams):
-    """Doing so avoids having too many indentations when using several levels of namespaces."""
+    """Preprocess options nested under "model.preprocess".
+
+    Doing so avoids having too many indentations when using several levels of namespaces.
+    """
 
     dropna: bool = Field(True, description="Drop rows with missing values")
     normalize: Literal["zscore", "minmax", "none"] = Field("zscore", description="Normalization strategy")
@@ -37,8 +40,8 @@ class ModelParams(TunableParams):
     dropout: float = Field(0.2, ge=0.0, le=1.0, description="Dropout probability")
     agg: Literal["sum", "concat"] = Field("sum", description="Aggregation method")
 
-    class Preprocess(PreprocessParams):
-        """Preprocess options nested under "model.preprocess"."""
+    Preprocess = PreprocessParams
+    """Preprocess options nested under "model.preprocess"."""
 
 
 class TrainParams(TunableParams):

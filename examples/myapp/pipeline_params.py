@@ -21,7 +21,7 @@ Preprocess = ModelParams.Preprocess
 
 @tunable("hidden_units", "dropout", "agg", apps="train")
 @tunable("batch_norm", apps="train")
-@tunable("root_param", apps=("train"))
+@tunable("root_param", apps="train")
 def build_model(
     hidden_units=ModelParams.hidden_sizes,
     dropout=ModelParams.dropout,

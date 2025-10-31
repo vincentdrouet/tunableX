@@ -34,17 +34,35 @@ def _pascalcase_to_snake_case(ns: str) -> str:
 class TunableParamsMeta(type):
     """A metaclass that allows to retrieve namespace and type annotation at runtime."""
 
-    def _namespace(cls) -> str:
-        ns = _pascalcase_to_snake_case(super().__getattribute__("__qualname__")).replace("_params", "")
-        if ns == "main" or ns == "root":
-            ns = ""
-        return ns
+    def __init__(cls, name, bases, attrs):  # noqa: D107
+        super().__init__(name, bases, attrs)
+        cls.namespace = None
 
-    def __getattribute__(cls, name: str):
+    @staticmethod
+    def _process_name(name: str) -> str:
+        """Process a class name to turn it into a namespace."""
+        name = _pascalcase_to_snake_case(name).replace("_params", "")
+        if name == "main" or name == "root":
+            name = ""
+        return name
+
+    def __getattribute__(cls, name: str) -> Any | tuple[Any, str, str, str]:
+        """Override that returns additional informations when the attribute is a FieldInfo.
+
+        Store the classes that are accessed and use them to build the final namespace.
+        """
+        if super().__getattribute__("namespace") is None:
+            cls.namespace = TunableParamsMeta._process_name(super().__getattribute__("__name__"))
+
         if isinstance(value := super().__getattribute__(name), FieldInfo):
             globalsns = vars(sys.modules[cls.__module__])
             typ = get_type_hints(cls, globalns=globalsns).get(name, Any)
-            return value, typ, TunableParamsMeta._namespace(cls), name
+            return value, typ, cls.namespace, name
+
+        # If value is a class with this metaclass, update its parent namespace
+        if isinstance(value, type) and isinstance(value, TunableParamsMeta):
+            value.namespace = f"{cls.namespace}.{TunableParamsMeta._process_name(name)}"
+
         return value
 
 
@@ -56,7 +74,7 @@ class TunableParams(metaclass=TunableParamsMeta):
     If the resulting namespace is `main` or `root`, the parameters will be stored at the root level.
 
     When using several levels of namespaces, it is possible to declare the parameters in a class at the root level
-    and to inherit from this class in the namespace, to avoid having too many indentations in the lower levels.
+    and to reference this class in the namespace, to avoid having too many indentations in the lower levels.
 
     Example:
         # This is root level
@@ -65,8 +83,9 @@ class TunableParams(metaclass=TunableParamsMeta):
             param2: ...
 
         class GeneralParams(TunableParams):
-            class Advanced(AdvancedParams):
-                pass
+            Advanced = AdvancedParams
+
+    In this case, the namespace for param1 and param2 is `general.advanced`.
     """
 
 
