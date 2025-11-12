@@ -18,7 +18,7 @@ from pydantic.fields import FieldInfo
 
 from .context import _active_cfg
 from .registry import REGISTRY
-from .registry import TunableEntry
+from .registry import TunableArg
 
 if TYPE_CHECKING:
     from collections.abc import Iterable
@@ -118,12 +118,12 @@ def tunable(
     if include_set and exclude_set:
         msg = "Cannot pass both `include` and `exclude` arguments."
         raise ValueError(msg)
-    apps = (apps,) if isinstance(apps, str) else apps
+    apps = {apps} if isinstance(apps, str) else set(apps)
 
     def decorator(fn):
         sig = inspect.signature(fn)
         ns = namespace
-        namespaces = {}
+        namespaces = set()
         ref_names = {}
         for name, p in sig.parameters.items():
             if name == "mro":
@@ -151,11 +151,8 @@ def tunable(
             else:
                 typ = inspect.get_annotations(fn, eval_str=False)[name]
                 typ = eval(typ, fn.__globals__) if isinstance(typ, str) else typ
-            ns_dict = namespaces.setdefault(ns, {})
-            ns_dict.update({name: (typ, default)})
-
-        for ns, fields in namespaces.items():
-            REGISTRY.register(TunableEntry(fn=fn, fields=fields, namespace=ns, apps=set(apps)))
+            namespaces.add(ns)
+            REGISTRY.register(TunableArg(name=name, typ=typ, default=default, namespace=ns, fn=fn, apps=apps))
 
         @functools.wraps(fn)
         def wrapper(*args, cfg: BaseModel | dict | None = None, **kwargs):

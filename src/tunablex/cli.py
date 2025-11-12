@@ -5,9 +5,9 @@ import importlib
 import json
 import sys
 
-from .runtime import defaults_for_apps
+from .runtime import defaults_for_app
 from .runtime import schema_by_entry_ast
-from .runtime import schema_for_apps
+from .runtime import schema_for_app
 from .runtime import write_schema
 
 
@@ -27,7 +27,7 @@ def main(argv=None):
     sub = p.add_subparsers(dest="cmd", required=True)
 
     s = sub.add_parser("schema", help="Emit schema/defaults for one or more apps (by tags).")
-    s.add_argument("--apps", nargs="+", required=True)
+    s.add_argument("--app", required=True)
     s.add_argument("--import", dest="imports", nargs="+", required=True)
     s.add_argument(
         "--sys-path", dest="sys_paths", nargs="+", default=[], help="Paths to insert into sys.path before imports."
@@ -47,8 +47,8 @@ def main(argv=None):
     _import_modules(args.imports)
 
     if args.cmd == "schema":
-        schema = schema_for_apps(*args.apps)
-        defaults = defaults_for_apps(*args.apps)
+        schema = schema_for_app(args.app)
+        defaults = defaults_for_app(args.app)
         if args.out:
             write_schema(args.out, schema, defaults)
         else:

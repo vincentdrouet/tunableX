@@ -17,13 +17,13 @@ if TYPE_CHECKING:
     from collections.abc import Callable
 
 
-def schema_for_apps(*apps: str) -> dict:
-    AppConfig = REGISTRY.build_config(REGISTRY.namespaces_for_apps(apps))
+def schema_for_app(app: str) -> dict:
+    AppConfig = REGISTRY.build_config(app)
     return AppConfig.model_json_schema()
 
 
-def defaults_for_apps(*apps: str) -> dict:
-    AppConfig = REGISTRY.build_config(REGISTRY.namespaces_for_apps(apps))
+def defaults_for_app(app: str) -> dict:
+    AppConfig = REGISTRY.build_config(app)
     try:
         # JSON mode ensures Path, enums, etc. are converted to JSON-friendly forms
         return AppConfig().model_dump(mode="json")
@@ -77,7 +77,7 @@ def _namespaces_for_entry(entrypoint: Callable) -> list[str]:
     # any of the called function names discovered statically.
     called = _gather_called_function_names(entrypoint)
     namespaces: list[str] = []
-    for ns, entry in REGISTRY.entry_dict.items():
+    for ns, entry in REGISTRY.entry_tree.items():
         fn = entry.fn
         qn = f"{fn.__module__}.{fn.__name__}"
         short = fn.__name__
@@ -105,8 +105,7 @@ def write_schema(prefix: str, schema: dict, defaults: dict | None = None):
 
 
 def make_app_config_for(app: str) -> type[BaseModel]:
-    namespaces = REGISTRY.namespaces_for_apps([app])
-    return REGISTRY.build_config(namespaces)
+    return REGISTRY.build_config(app)
 
 
 def load_app_config(app: str, json_path: str | Path):

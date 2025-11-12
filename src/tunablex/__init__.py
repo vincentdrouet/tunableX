@@ -9,11 +9,11 @@ from .decorators import TunableParams as TunableParams
 from .decorators import TunableParamsMeta as TunableParamsMeta
 from .decorators import tunable as tunable
 from .registry import REGISTRY as REGISTRY
-from .runtime import defaults_for_apps as defaults_for_apps
+from .runtime import defaults_for_app as defaults_for_app
 from .runtime import load_app_config as load_app_config
 from .runtime import load_config_for_entry as load_config_for_entry
 from .runtime import make_app_config_for as make_app_config_for
 from .runtime import make_app_config_for_entry as make_app_config_for_entry
 from .runtime import schema_by_entry_ast as schema_by_entry_ast
-from .runtime import schema_for_apps as schema_for_apps
+from .runtime import schema_for_app as schema_for_app
 from .runtime import write_schema as write_schema
