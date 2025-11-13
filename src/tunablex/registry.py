@@ -85,15 +85,17 @@ class TunableRegistry:
             f"{existing_entry.default} vs {entry.default}"
             raise ValueError(msg)
 
-    def build_config(self, app: str, node: dict[str, TunableArg | dict] | None = None) -> type[BaseModel]:
+    def build_config(self, app: str, node: Node | None = None) -> type[BaseModel]:
         """Recursively create an AppConfig model for a given app."""
         node = self.entry_tree if node is None else node
         fields = {}
         for name, entry in node.entries.items():
-            fields[name] = (entry.typ, entry.default)
+            if app in entry.apps:
+                fields[name] = (entry.typ, entry.default)
         for name, child in node.children.items():
             child_model = self.build_config(app, child)
-            fields[name] = (child_model, Field(default_factory=child_model))
+            if child_model.model_fields:
+                fields[name] = (child_model, Field(default_factory=child_model))
 
         model_name = f"{node.path.title().replace('_', '').replace('.', '_')}_Config"
         return create_model(model_name, **fields)
