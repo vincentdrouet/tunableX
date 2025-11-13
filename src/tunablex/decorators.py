@@ -152,7 +152,7 @@ def tunable(
                 typ = inspect.get_annotations(fn, eval_str=False)[name]
                 typ = eval(typ, fn.__globals__) if isinstance(typ, str) else typ
             namespaces.add(ns)
-            REGISTRY.register(TunableArg(name=name, typ=typ, default=default, namespace=ns, fn=fn, apps=apps))
+            REGISTRY.register(TunableArg(name=name, typ=typ, default=default, namespace=ns, fn=fn, apps=set(apps)))
 
         @functools.wraps(fn)
         def wrapper(*args, cfg: BaseModel | dict | None = None, **kwargs):
