@@ -30,7 +30,12 @@ class TunableArg:
     default: Field | Any
     fn: Callable
     namespace: str
-    apps: set[str] = field(default_factory=set)
+    apps: set[str]
+
+    def __post_init__(self):
+        """If no app is provided, default to ALL."""
+        if not self.apps:
+            self.apps = {"ALL"}
 
 
 class Node:
@@ -85,12 +90,15 @@ class TunableRegistry:
             f"{existing_entry.default} vs {entry.default}"
             raise ValueError(msg)
 
+        # Merge the apps
+        existing_entry.apps.update(entry.apps)
+
     def build_config(self, app: str, node: Node | None = None) -> type[BaseModel]:
         """Recursively create an AppConfig model for a given app."""
         node = self.entry_tree if node is None else node
         fields = {}
         for name, entry in node.entries.items():
-            if app in entry.apps:
+            if app in entry.apps or "ALL" in entry.apps:
                 fields[name] = (entry.typ, entry.default)
         for name, child in node.children.items():
             child_model = self.build_config(app, child)
