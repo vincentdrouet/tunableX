@@ -8,6 +8,9 @@ from pydantic import Field
 
 from tunablex import tunable
 
+from .pipeline_submodule import SubmoduleClass
+from .pipeline_submodule import submodule_fun
+
 
 @tunable(
     "dropna",
@@ -23,5 +26,7 @@ def preprocess(
     clip_outliers: float = Field(3.0, ge=0, le=10, description="Clip values beyond k standard deviations"),
 ):
     """Run preprocessing on the given dataset path."""
+    submodule_fun()
+    SubmoduleClass.fun()
     print("preprocess", dropna, normalize, clip_outliers, "on", path)
     return "clean"

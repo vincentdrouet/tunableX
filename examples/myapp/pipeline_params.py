@@ -15,8 +15,8 @@ from .params import MainParams
 from .params import ModelParams
 from .params import ServeParams
 from .params import TrainParams
-from .pipeline_ast import ASTTestClass
-from .pipeline_ast import ast_test_fun
+from .pipeline_submodule import SubmoduleClass
+from .pipeline_submodule import submodule_fun
 
 Preprocess = ModelParams.Preprocess
 
@@ -57,8 +57,8 @@ def preprocess(
     path: str, dropna=Preprocess.dropna, normalize=Preprocess.normalize, clip_outliers=Preprocess.clip_outliers
 ):
     """Preprocess the dataset using centralized parameters."""
-    ast_test_fun()
-    ASTTestClass.fun()
+    submodule_fun()
+    SubmoduleClass.fun()
     print("preprocess", dropna, normalize, clip_outliers, "on", path)
     return "clean"
 

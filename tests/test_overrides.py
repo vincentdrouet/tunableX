@@ -32,12 +32,17 @@ def test_jsonargparse_app_override_precedence(tmp_path, run_example):
             "50",
             "--model.hidden_units",
             "512",
+            "--model.preprocess.submodule_fun.arg1",
+            "10",
+            "--model.preprocess.submodule_class.arg2",
         ],
     )
     assert code == 0, err
     # Expect overridden values
-    assert "build_model 512 0.15" in out  # dropout from file, hidden_units from CLI
-    assert "train 50 8 sgd" in out  # epochs from CLI, batch_size+optimizer from file
+    assert "submodule_fun 10 True" in out
+    assert "submodule_class 1 True" in out
+    assert "build_model 512 0.15" in out
+    assert "train 50 8 sgd" in out
 
 
 @pytest.mark.skipif(pytest.importorskip("jsonargparse") is None, reason="jsonargparse not installed")
@@ -61,10 +66,15 @@ def test_jsonargparse_trace_override_precedence(tmp_path, run_example):
             "zscore",
             "--train.batch_size",
             "16",
+            "--model.preprocess.submodule_fun.arg1",
+            "10",
+            "--model.preprocess.submodule_class.arg2",
         ],
     )
     assert code == 0, err
-    # normalize and batch_size overridden; others from file
+    # Expect overridden values
+    assert "submodule_fun 10 True" in out
+    assert "submodule_class 1 True" in out
     assert "preprocess True zscore 3.0" in out
     assert "build_model 64 0.25" in out
     assert "train 3 16 adam" in out
