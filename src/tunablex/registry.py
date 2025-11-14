@@ -75,7 +75,10 @@ class TunableArg:
     name: str
     typ: Any
     default: Field | Any
-    fn: Callable
+    fn_name: str
+    """The function name."""
+    fn_fullname: str
+    """The function full name, including the module if any."""
     namespace: str
     apps: set[str]
 
@@ -161,7 +164,7 @@ class TunableRegistry:
         node = self.entry_tree if node is None else node
         fields = {}
         for name, entry in node.entries.items():
-            if entry.fn.__qualname__ in called or f"{entry.fn.__module__}.{entry.fn.__qualname__}" in called:
+            if entry.fn_name in called or entry.fn_fullname in called:
                 fields[name] = (entry.typ, entry.default)
         for name, child in node.children.items():
             child_model = self.build_config_for_entrypoint(entrypoint, child)
