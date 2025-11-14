@@ -7,13 +7,14 @@ Usage:
   python examples/trace_generate_schema.py --entry serve --prefix serve_config
   -> writes serve_config.schema.json and serve_config.json
 """
+
 from __future__ import annotations
 
 import argparse
 
 import examples.myapp.pipeline_params as pipeline  # registers @tunable
 
-from tunablex.runtime import schema_by_entry_ast
+from tunablex.runtime import schema_for_entrypoint
 from tunablex.runtime import write_schema
 
 
@@ -33,10 +34,9 @@ def main():
     args = parser.parse_args()
 
     entry_fn = pipeline.train_main if args.entry == "train" else pipeline.serve_main
-    schema, defaults, namespaces = schema_by_entry_ast(entry_fn)
+    schema, defaults = schema_for_entrypoint(entry_fn)
     write_schema(args.prefix, schema, defaults)
 
-    print(f"Analyzed namespaces (AST): {sorted(namespaces)}")
     print(f"Wrote {args.prefix}.schema.json and {args.prefix}.json")
 
 

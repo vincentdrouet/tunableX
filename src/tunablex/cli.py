@@ -5,9 +5,8 @@ import importlib
 import json
 import sys
 
-from .runtime import defaults_for_app
-from .runtime import schema_by_entry_ast
 from .runtime import schema_for_app
+from .runtime import schema_for_entrypoint
 from .runtime import write_schema
 
 
@@ -47,8 +46,7 @@ def main(argv=None):
     _import_modules(args.imports)
 
     if args.cmd == "schema":
-        schema = schema_for_app(args.app)
-        defaults = defaults_for_app(args.app)
+        schema, defaults = schema_for_app(args.app)
         if args.out:
             write_schema(args.out, schema, defaults)
         else:
@@ -58,7 +56,7 @@ def main(argv=None):
     if args.cmd == "analyze":
         modname, funcname = args.entry.split(":")
         fn = getattr(importlib.import_module(modname), funcname)
-        schema, defaults, touched = schema_by_entry_ast(fn)
+        schema, defaults, touched = schema_for_entrypoint(fn)
         if args.out:
             write_schema(args.out, schema, defaults)
         else:

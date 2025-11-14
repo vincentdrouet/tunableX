@@ -14,7 +14,6 @@ import argparse
 
 from examples.myapp.pipeline_params import *
 
-from tunablex.runtime import defaults_for_app
 from tunablex.runtime import schema_for_app
 from tunablex.runtime import write_schema
 
@@ -34,8 +33,7 @@ def main():
     )
     args = parser.parse_args()
 
-    schema = schema_for_app(args.app)
-    defaults = defaults_for_app(args.app)
+    schema, defaults = schema_for_app(args.app)
     write_schema(args.prefix, schema, defaults)
 
     print(f"Wrote {args.prefix}.schema.json and {args.prefix}.json")

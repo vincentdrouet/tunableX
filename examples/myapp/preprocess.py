@@ -1,4 +1,5 @@
 """Preprocessing step with tunable parameters under a nested namespace."""
+
 from __future__ import annotations
 
 from typing import Literal
@@ -18,9 +19,7 @@ from tunablex import tunable
 def preprocess(
     path: str,
     dropna: bool = Field(True, description="Drop rows with missing values"),
-    normalize: Literal["zscore", "minmax", "none"] = Field(
-        "zscore", description="Normalization strategy"
-    ),
+    normalize: Literal["zscore", "minmax", "none"] = Field("zscore", description="Normalization strategy"),
     clip_outliers: float = Field(3.0, ge=0, le=10, description="Clip values beyond k standard deviations"),
 ):
     """Run preprocessing on the given dataset path."""
