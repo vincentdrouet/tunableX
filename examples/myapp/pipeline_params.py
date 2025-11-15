@@ -58,7 +58,8 @@ def preprocess(
 ):
     """Preprocess the dataset using centralized parameters."""
     submodule_fun()
-    SubmoduleClass.fun()
+    c = SubmoduleClass()
+    c.fun()
     print("preprocess", dropna, normalize, clip_outliers, "on", path)
     return "clean"
 

@@ -62,7 +62,3 @@ def test_trace_generate_schema_only(tmp_path, run_example):
     schema = json.loads(schema_path.read_text())
     assert schema.get("type") == "object"
     assert "properties" in schema
-
-
-# Deprecated tracing tests removed after migration to static AST analysis.
-# Keeping file to avoid import errors if referenced elsewhere.

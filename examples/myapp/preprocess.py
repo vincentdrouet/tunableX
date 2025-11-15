@@ -27,6 +27,7 @@ def preprocess(
 ):
     """Run preprocessing on the given dataset path."""
     submodule_fun()
-    SubmoduleClass.fun()
+    c = SubmoduleClass()
+    c.fun()
     print("preprocess", dropna, normalize, clip_outliers, "on", path)
     return "clean"
