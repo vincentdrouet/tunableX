@@ -11,6 +11,7 @@ from __future__ import annotations
 import ast
 import inspect
 import sys
+from contextlib import suppress
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 from typing import Any
@@ -23,7 +24,7 @@ if TYPE_CHECKING:
     from collections.abc import Callable
 
 
-def _gather_called_function_names(entry_fn: Callable, called: set | None = None) -> set[str]:
+def _gather_called_function_names(entry_fn: Callable, called: set):
     """Return set of fully qualified function names that are reachable from entry_fn's module.
 
     This performs a simple static AST walk starting from the entry function's
@@ -32,20 +33,17 @@ def _gather_called_function_names(entry_fn: Callable, called: set | None = None)
     @tunable-decorated functions may be used so we can compose an AppConfig
     without executing user code.
     """
-    if called is None:
-        called = set()
-
     try:
         src = inspect.getsource(entry_fn)
     except (OSError, TypeError):  # source not available
-        return set()
+        return
 
     tree = ast.parse(src)
     sub_called = set()
 
-    class CallVisitor(ast.NodeVisitor):
-        def visit_Call(self, node: ast.Call):  # noqa: N802
-            # function name patterns: foo(), module.foo(), obj.method()
+    class CustomVisitor(ast.NodeVisitor):
+        def visit_Call(self, node: ast.Call):
+            """Add the name of called functions to the `sub_called` set."""
             name_parts: list[str] = []
             cur = node.func
             while isinstance(cur, ast.Attribute):
@@ -58,14 +56,19 @@ def _gather_called_function_names(entry_fn: Callable, called: set | None = None)
                 sub_called.add(fn_fullname)
             self.generic_visit(node)
 
-    CallVisitor().visit(tree)
-    for sub_fn_fullname in sub_called:
+        def visit_ClassDef(self, node: ast.ClassDef):
+            """Add the __init__ of called classes to the `sub_called` set."""
+            sub_called.add(f"{node.name}.__init__")
+            self.generic_visit(node)
+
+    CustomVisitor().visit(tree)
+    for sub_fn_fullname in sub_called.difference(called):
+        called.add(sub_fn_fullname)
         sub_fn_name = sub_fn_fullname.split(".")[-1]
-        sub_fn = vars(sys.modules[entry_fn.__module__]).get(sub_fn_name)
-        if sub_fn is not None:
-            _gather_called_function_names(sub_fn, called)
-    called.update(sub_called)
-    return called
+        with suppress(Exception):
+            sub_fn = vars(sys.modules[entry_fn.__module__]).get(sub_fn_name)
+            if sub_fn is not None:
+                _gather_called_function_names(sub_fn, called)
 
 
 @dataclass
@@ -73,14 +76,25 @@ class TunableArg:
     """A registered tunable argument."""
 
     name: str
+    """The argument's name."""
+
     typ: Any
+    """The argument's type."""
+
     default: Field | Any
-    fn_name: str
-    """The function name."""
-    fn_fullname: str
-    """The function full name, including the module if any."""
+    """The argument's default value."""
+
+    fn_names: set[str]
+    """The names of the functions that call the argument.
+    Used for config generation with AST.
+    The same function can be present twice, with and without the module name, if any.
+    """
+
     namespace: str
+    """The argument's namespace."""
+
     apps: set[str]
+    """The apps where the argument is used."""
 
     def __post_init__(self):
         """If no app is provided, default to ALL."""
@@ -126,7 +140,7 @@ class TunableRegistry:
                 path.append(p)
                 node = node.children.setdefault(p, Node(".".join(path)))
         existing_entry = node.entries.get(entry.name)
-        if not existing_entry:
+        if existing_entry is None:
             node.entries[entry.name] = entry
             return
 
@@ -140,8 +154,9 @@ class TunableRegistry:
             f"{existing_entry.default} vs {entry.default}"
             raise ValueError(msg)
 
-        # Merge the apps
+        # Merge the apps and the functions
         existing_entry.apps.update(entry.apps)
+        existing_entry.fn_names.update(entry.fn_names)
 
     def build_config_for_app(self, app: str, node: Node | None = None) -> type[BaseModel]:
         """Recursively create an AppConfig model for a given app."""
@@ -158,21 +173,26 @@ class TunableRegistry:
         model_name = f"{node.path.title().replace('_', '').replace('.', '_')}_Config"
         return create_model(model_name, **fields)
 
-    def build_config_for_entrypoint(self, entrypoint: Callable, node: Node | None = None) -> list[str]:
-        """Build a config based on all functions calls from an entry point."""
-        called = _gather_called_function_names(entrypoint)
+    def _build_config_from_called(self, called: set[str], node: Node | None = None) -> type[BaseModel]:
+        """Build a config based on a the set of functions called."""
         node = self.entry_tree if node is None else node
         fields = {}
         for name, entry in node.entries.items():
-            if entry.fn_name in called or entry.fn_fullname in called:
+            if entry.fn_names.intersection(called):
                 fields[name] = (entry.typ, entry.default)
         for name, child in node.children.items():
-            child_model = self.build_config_for_entrypoint(entrypoint, child)
+            child_model = self._build_config_from_called(called, child)
             if child_model.model_fields:
                 fields[name] = (child_model, Field(default_factory=child_model))
 
         model_name = f"{node.path.title().replace('_', '').replace('.', '_')}_Config"
         return create_model(model_name, **fields)
+
+    def build_config_for_entrypoint(self, entrypoint: Callable) -> type[BaseModel]:
+        """Build a config based on all functions calls from an entry point."""
+        called = {entrypoint.__qualname__}
+        _gather_called_function_names(entrypoint, called)
+        return self._build_config_from_called(called)
 
 
 REGISTRY = TunableRegistry()

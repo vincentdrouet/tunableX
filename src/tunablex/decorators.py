@@ -158,8 +158,7 @@ def tunable(
                     typ=typ,
                     default=default,
                     namespace=ns,
-                    fn_name=fn.__qualname__,
-                    fn_fullname=f"{fn.__module__}.{fn.__qualname__}",
+                    fn_names={fn.__qualname__, f"{fn.__module__}.{fn.__qualname__}"},
                     apps=set(apps),
                 )
             )
@@ -176,11 +175,11 @@ def tunable(
                 }
                 return fn(*args, **filtered, **kwargs)
 
-            app_cfg = _active_cfg.get()
-            if app_cfg is not None:
+            cfg = _active_cfg.get()
+            if cfg is not None:
                 filtered = {}
                 for ns in namespaces:
-                    section = _resolve_nested_section(app_cfg, ns)
+                    section = _resolve_nested_section(cfg, ns)
                     if section is not None:
                         data = section if isinstance(section, dict) else section.model_dump()
                         filtered.update({
