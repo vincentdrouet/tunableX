@@ -165,6 +165,9 @@ def tunable(
 
         @functools.wraps(fn)
         def wrapper(*args, cfg: BaseModel | dict | None = None, **kwargs):
+            # Handle static methods called from instances
+            if isinstance(fn, staticmethod) and args[0].__class__.__name__ == fn.__qualname__.split(".")[0]:
+                args = args[1:]
             if cfg is not None:
                 data = cfg if isinstance(cfg, dict) else cfg.model_dump()
                 filtered = {
