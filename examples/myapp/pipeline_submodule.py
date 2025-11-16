@@ -16,5 +16,5 @@ class SubmoduleClass:
 
     @tunable("arg1", "arg2", namespace="model.preprocess.submodule_class")
     @staticmethod
-    def fun(arg1: int = 0, arg2: bool = False):
+    def method(arg1: int = 0, arg2: bool = False):
         print("submodule_class_method", arg1, arg2)

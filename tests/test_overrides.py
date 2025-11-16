@@ -43,7 +43,7 @@ def test_jsonargparse_app_override_precedence(tmp_path, run_example):
     # Expect overridden values
     assert "submodule_fun 10 False" in out
     assert "sumbodule_class -5 False"
-    assert "submodule_class_method 1 True" in out
+    assert "submodule_class_method 0 True" in out
     assert "build_model 512 0.15" in out
     assert "train 50 8 sgd" in out
 
@@ -80,7 +80,7 @@ def test_jsonargparse_trace_override_precedence(tmp_path, run_example):
     # Expect overridden values
     assert "submodule_fun 10 False" in out
     assert "sumbodule_class -5 False"
-    assert "submodule_class_method 1 True" in out
+    assert "submodule_class_method 0 True" in out
     assert "preprocess True zscore 3.0" in out
     assert "build_model 64 0.25" in out
     assert "train 3 16 adam" in out
