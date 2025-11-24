@@ -12,7 +12,7 @@ from __future__ import annotations
 
 import argparse
 
-from examples.myapp.pipeline_params import *
+import examples.myapp.pipeline_params as pipeline_params
 
 from tunablex.runtime import schema_for_app
 from tunablex.runtime import write_schema

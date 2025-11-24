@@ -18,7 +18,7 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     if args.gen_schema:
-        schema, defaults, _ = schema_for_entrypoint(pipeline.train_main)
+        schema, defaults = schema_for_entrypoint(pipeline.train_main)
         write_schema(args.schema_prefix, schema, defaults)
         print(f"Wrote {args.schema_prefix}.schema.json and {args.schema_prefix}.json")
     else:
