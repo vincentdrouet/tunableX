@@ -92,8 +92,24 @@ class TunableParamsMeta(type):
         if name in cache:
             return cache[name]
 
-        module = sys.modules.get(declaring_cls.__module__)
-        module_globals = {} if module is None else vars(module)
+        module_name = declaring_cls.__module__
+        module_globals: dict[str, Any] = {}
+
+        # A script launched directly is imported under different names by
+        # multiprocessing (``__main__`` in the parent and ``__mp_main__`` in
+        # a spawned worker).  The class may retain either name while the
+        # runtime values used by its postponed annotations are available from
+        # the other module alias.  Merge the aliases before resolving the
+        # annotation so names such as ``PROBLEM_SPLITS`` remain visible.
+        if module_name in {"__main__", "__mp_main__"}:
+            for alias in ("__main__", "__mp_main__"):
+                alias_module = sys.modules.get(alias)
+                if alias_module is not None:
+                    module_globals.update(vars(alias_module))
+
+        module = sys.modules.get(module_name)
+        if module is not None:
+            module_globals.update(vars(module))
         globalns = dict(vars(typing))
         globalns.update(vars(builtins))
         globalns.update(module_globals)

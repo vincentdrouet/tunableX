@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import multiprocessing
+import sys
+import types
 from typing import Annotated
 from typing import Literal
 
@@ -65,3 +67,16 @@ def test_type_resolution_works_in_worker():
     process.join(timeout=10)
     assert process.exitcode == 0
     assert queue.get(timeout=2) is True
+
+
+def test_type_resolution_works_across_main_module_aliases(monkeypatch):
+    """Postponed annotations can resolve values from __main__/__mp_main__."""
+    module = types.ModuleType("__main__")
+    module.PROBLEM_SPLITS = {"train_8": [], "valid_8": []}
+    monkeypatch.setitem(sys.modules, "__main__", module)
+
+    class MainAliasParams(TunableParams):
+        split: Literal[*PROBLEM_SPLITS] = Field("train_8")  # pyright: ignore[reportUndefinedVariable, reportInvalidTypeForm] # noqa: F821
+
+    MainAliasParams.__module__ = "__mp_main__"
+    assert MainAliasParams.split.typ == Literal["train_8", "valid_8"]
