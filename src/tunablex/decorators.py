@@ -6,10 +6,12 @@ from the active AppConfig at call time. Supports dotted namespaces.
 
 from __future__ import annotations
 
+import builtins
 import functools
 import inspect
 import re
 import sys
+import typing
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 from typing import Any
@@ -70,6 +72,60 @@ class TunableParamsMeta(type):
     def __init__(cls, name, bases, attrs):  # noqa: D107
         super().__init__(name, bases, attrs)
         cls.namespace = None
+        type.__setattr__(cls, "__tunable_type_hints__", {})
+
+    @staticmethod
+    def _declaring_class(cls, name: str):
+        """Return the MRO class that declares ``name``'s annotation."""
+        for candidate in type.__getattribute__(cls, "__mro__"):
+            annotations = vars(candidate).get("__annotations__", {})
+            if name in annotations:
+                return candidate
+        return None
+
+    @staticmethod
+    def _resolve_type(name: str, declaring_cls: type) -> type:
+        """Resolve one annotation using the declaring class's namespaces."""
+        annotations = inspect.get_annotations(declaring_cls, eval_str=False)
+        raw_annotation = annotations[name]
+        cache = type.__getattribute__(declaring_cls, "__tunable_type_hints__")
+        if name in cache:
+            return cache[name]
+
+        module = sys.modules.get(declaring_cls.__module__)
+        module_globals = {} if module is None else vars(module)
+        globalns = dict(vars(typing))
+        globalns.update(vars(builtins))
+        globalns.update(module_globals)
+        localns = dict(vars(declaring_cls))
+        localns[declaring_cls.__name__] = declaring_cls
+
+        # get_type_hints resolves all annotations on its target.
+        # Give it a one-field proxy so an unrelated unresolved annotation cannot break access to this field.
+        proxy = type(
+            "_TunableAnnotationProxy",
+            (),
+            {"__annotations__": {name: raw_annotation}},
+        )
+        try:
+            resolved = get_type_hints(
+                proxy,
+                globalns=globalns,
+                localns=localns,
+                include_extras=True,
+            )[name]
+        except NameError as exc:
+            missing = exc.name or str(exc)
+            msg = (
+                f"Unable to resolve annotation for tunable field "
+                f"'{declaring_cls.__module__}.{declaring_cls.__qualname__}.{name}' "
+                f"(raw annotation: {raw_annotation!r}); missing name: {missing}. "
+                "The name must be available at runtime, not only under TYPE_CHECKING."
+            )
+            raise NameError(msg) from exc
+
+        cache[name] = resolved
+        return resolved
 
     @staticmethod
     def _process_name(name: str) -> str:
@@ -101,8 +157,8 @@ class TunableParamsMeta(type):
             return value
 
         if isinstance(value, FieldInfo):
-            globalsns = vars(sys.modules[cls.__module__])
-            typ = get_type_hints(cls, globalns=globalsns).get(name, Any)
+            declaring_cls = TunableParamsMeta._declaring_class(cls, name)
+            typ = Any if declaring_cls is None else TunableParamsMeta._resolve_type(name, declaring_cls)
             if value.description is None:
                 value.description = _get_description(cls, name)
             return TunableParamData(value, typ, cls.namespace, name)
