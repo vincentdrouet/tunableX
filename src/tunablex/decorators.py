@@ -227,6 +227,7 @@ def tunable(
         sig = inspect.signature(fn)
         namespaces = {}
         global_names = {}
+        tunable_param_defaults = set()
         for name, p in sig.parameters.items():
             global_name = name
             if name == "mro":
@@ -244,6 +245,7 @@ def tunable(
                 continue
             default = p.default if p.default is not inspect._empty else ...
             if isinstance(default, TunableParamData):
+                tunable_param_defaults.add(name)
                 # The parameter is declared in a TunableParam class; retrieve type, namespace and reference name
                 default, typ, ns, global_name = (
                     default.value,
@@ -288,9 +290,22 @@ def tunable(
                         for k in ns_vars
                         if global_names.get(k, k) in data and k not in kwargs
                     })
-                return fn(*args, **filtered, **kwargs)
+                call_kwargs = {**filtered, **kwargs}
+            else:
+                call_kwargs = kwargs
 
-            return fn(*args, **kwargs)
+            bound = sig.bind_partial(*args, **call_kwargs)
+            for name in tunable_param_defaults:
+                value = bound.arguments.get(name, inspect.Parameter.empty)
+                if value is inspect.Parameter.empty or isinstance(value, TunableParamData):
+                    msg = (
+                        f"Function '{fn.__qualname__}' would receive TunableParamData "
+                        f"for parameter '{name}'. Activate a config with use_config() "
+                        "or provide an explicit value."
+                    )
+                    raise TypeError(msg)
+
+            return fn(*args, **call_kwargs)
 
         return wrapper
 
