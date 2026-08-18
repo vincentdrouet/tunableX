@@ -35,15 +35,13 @@ packages = ["src/tunablex"]
 [tool.hatch.build.targets.sdist]
 include = ["src", "README.md", "LICENSE", "pyproject.toml"]
 
+[dependency-groups]
+dev = [
+    "pytest>=9.1.1",
+    "ruff>=0.16.3",
+]
+
 [project.optional-dependencies]
 jsonargparse = ["jsonargparse>=4.26"]
 yaml = ["PyYAML>=6.0.1"]
 all = ["jsonargparse>=4.26", "PyYAML>=6.0.1"]
-# Developer tools (linting, tests, hooks) + runtime optionals
-dev = [
-  "jsonargparse>=4.26",
-  "PyYAML>=6.0.1",
-  "ruff>=0.6.0",
-  "pytest>=8.0.0",
-  "pre-commit>=3.5.0",
-]
