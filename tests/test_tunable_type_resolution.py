@@ -78,5 +78,5 @@ def test_type_resolution_works_across_main_module_aliases(monkeypatch):
     class MainAliasParams(TunableParams):
         split: Literal[*PROBLEM_SPLITS] = Field("train_8")  # pyright: ignore[reportUndefinedVariable, reportInvalidTypeForm] # noqa: F821
 
-    MainAliasParams.__module__ = "__mp_main__"
+    MainAliasParams.__module__ = "mp_main"
     assert MainAliasParams.split.typ == Literal["train_8", "valid_8"]
