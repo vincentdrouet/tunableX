@@ -6,12 +6,10 @@ from the active AppConfig at call time. Supports dotted namespaces.
 
 from __future__ import annotations
 
-import builtins
 import functools
 import inspect
 import re
 import sys
-import typing
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 from typing import Any
@@ -56,7 +54,7 @@ def _get_description(cls: type, name: str) -> str | None:
         return None
 
 
-@dataclass
+@dataclass(frozen=True)
 class TunableParamData:
     """Class containing the data of a tunable parameter."""
 
@@ -64,77 +62,111 @@ class TunableParamData:
     typ: type
     namespace: str
     name: str
+    raw_annotation: Any = None
 
 
 class TunableParamsMeta(type):
-    """A metaclass that allows to retrieve namespace and type annotation at runtime."""
+    """Metaclass that exposes centralized fields as parameter references."""
 
     def __init__(cls, name, bases, attrs):  # noqa: D107
         super().__init__(name, bases, attrs)
-        cls.namespace = None
+        type.__setattr__(cls, "namespace", TunableParamsMeta._compose_namespace(name))
         type.__setattr__(cls, "__tunable_type_hints__", {})
+        type.__setattr__(cls, "__tunable_fields__", {})
+        type.__setattr__(cls, "__tunable_globals__", TunableParamsMeta._execution_globals(cls))
+
+        for field_name, raw_annotation in attrs.get("__annotations__", {}).items():
+            field = attrs.get(field_name)
+            if not isinstance(field, FieldInfo):
+                continue
+            try:
+                typ = TunableParamsMeta._resolve_annotation(field_name, raw_annotation, cls)
+            except NameError:
+                # Keep unrelated unresolved annotations lazy. If the field is
+                # actually used as a tunable default, _resolve_type below
+                # raises the contextual error instead.
+                typ = None
+            if typ is not None:
+                type.__getattribute__(cls, "__tunable_type_hints__")[field_name] = typ
+            if field.description is None:
+                field.description = _get_description(cls, field_name)
+            type.__getattribute__(cls, "__tunable_fields__")[field_name] = TunableParamData(
+                field,
+                typ if typ is not None else Any,
+                type.__getattribute__(cls, "namespace"),
+                field_name,
+                raw_annotation,
+            )
 
     @staticmethod
     def _declaring_class(cls, name: str):
         """Return the MRO class that declares ``name``'s annotation."""
         for candidate in type.__getattribute__(cls, "__mro__"):
-            annotations = vars(candidate).get("__annotations__", {})
+            annotations = type.__getattribute__(candidate, "__dict__").get("__annotations__", {})
             if name in annotations:
                 return candidate
         return None
 
     @staticmethod
+    def _execution_globals(cls) -> dict[str, Any]:
+        """Return globals used while executing the declaring class."""
+        module_name = type.__getattribute__(cls, "__module__")
+        frame = inspect.currentframe()
+        try:
+            while frame is not None:
+                if frame.f_globals.get("__name__") == module_name:
+                    return frame.f_globals
+                frame = frame.f_back
+        finally:
+            del frame
+
+        module = sys.modules.get(module_name)
+        if module is not None:
+            return vars(module)
+        return {}
+
+    @staticmethod
+    def _resolve_annotation(name: str, raw_annotation: Any, declaring_cls: type) -> type:
+        """Resolve one annotation using the declaring module's namespace."""
+        if not isinstance(raw_annotation, str):
+            return raw_annotation
+
+        module_name = type.__getattribute__(declaring_cls, "__module__")
+        module_globals = type.__getattribute__(declaring_cls, "__tunable_globals__")
+        if not module_globals:
+            module = sys.modules.get(module_name)
+            module_globals = {} if module is None else vars(module)
+        localns = dict(type.__getattribute__(declaring_cls, "__dict__"))
+        localns[type.__getattribute__(declaring_cls, "__name__")] = declaring_cls
+        proxy = type(
+            "_TunableAnnotationProxy",
+            (),
+            {"__module__": module_name, "__annotations__": {name: raw_annotation}},
+        )
+        return get_type_hints(
+            proxy,
+            globalns=module_globals,
+            localns=localns,
+            include_extras=True,
+        )[name]
+
+    @staticmethod
     def _resolve_type(name: str, declaring_cls: type) -> type:
-        """Resolve one annotation using the declaring class's namespaces."""
-        annotations = inspect.get_annotations(declaring_cls, eval_str=False)
-        raw_annotation = annotations[name]
+        """Resolve a deferred annotation when its field is actually used."""
         cache = type.__getattribute__(declaring_cls, "__tunable_type_hints__")
         if name in cache:
             return cache[name]
 
-        module_name = declaring_cls.__module__
-        module_globals: dict[str, Any] = {}
-
-        # A script launched directly is imported under different names by
-        # multiprocessing (for example ``__main__``, ``__mp_main__`` or
-        # ``mp_main``). The class may retain one name while the runtime
-        # values used by its postponed annotations are available from another
-        # main-module alias. Merge all known aliases first, then overlay the
-        # declaring module below so its globals remain authoritative.
-        for alias in ("__main__", "__mp_main__", "mp_main"):
-            alias_module = sys.modules.get(alias)
-            if alias_module is not None:
-                module_globals.update(vars(alias_module))
-
-        module = sys.modules.get(module_name)
-        if module is not None:
-            module_globals.update(vars(module))
-        globalns = dict(vars(typing))
-        globalns.update(vars(builtins))
-        globalns.update(module_globals)
-        localns = dict(vars(declaring_cls))
-        localns[declaring_cls.__name__] = declaring_cls
-
-        # get_type_hints resolves all annotations on its target.
-        # Give it a one-field proxy so an unrelated unresolved annotation cannot break access to this field.
-        proxy = type(
-            "_TunableAnnotationProxy",
-            (),
-            {"__annotations__": {name: raw_annotation}},
-        )
+        field_data = type.__getattribute__(declaring_cls, "__tunable_fields__")[name]
         try:
-            resolved = get_type_hints(
-                proxy,
-                globalns=globalns,
-                localns=localns,
-                include_extras=True,
-            )[name]
+            resolved = TunableParamsMeta._resolve_annotation(name, field_data.raw_annotation, declaring_cls)
         except NameError as exc:
             missing = exc.name or str(exc)
             msg = (
                 f"Unable to resolve annotation for tunable field "
-                f"'{declaring_cls.__module__}.{declaring_cls.__qualname__}.{name}' "
-                f"(raw annotation: {raw_annotation!r}); missing name: {missing}. "
+                f"'{type.__getattribute__(declaring_cls, '__module__')}."
+                f"{type.__getattribute__(declaring_cls, '__qualname__')}.{name}' "
+                f"(raw annotation: {field_data.raw_annotation!r}); missing name: {missing}. "
                 "The name must be available at runtime, not only under TYPE_CHECKING."
             )
             raise NameError(msg) from exc
@@ -143,40 +175,36 @@ class TunableParamsMeta(type):
         return resolved
 
     @staticmethod
-    def _process_name(name: str) -> str:
-        """Process a class name to turn it into a namespace."""
+    def _compose_namespace(name: str) -> str:
+        """Turn a class name into a namespace."""
         name = _pascalcase_to_snake_case(name).replace("_params", "")
         if name == "main" or name == "root":
             name = ""
         return name
 
     def __getattribute__(cls, name: str) -> Any | tuple[Any, str, str, str]:
-        """Override that returns additional informations when the attribute is a FieldInfo.
-
-        Store the classes that are accessed and use them to build the final namespace.
-        """
+        """Return centralized fields as metadata references."""
         value = super().__getattribute__(name)
         if not isinstance(cls, TunableParamsMeta):
             return value
 
-        if super().__getattribute__("namespace") is None:
-            cls.namespace = TunableParamsMeta._process_name(super().__getattribute__("__name__"))
-
         # If value is a class with this metaclass, update its parent namespace
         if isinstance(value, type) and isinstance(value, TunableParamsMeta):
+            parent_namespace = type.__getattribute__(cls, "namespace")
             value.namespace = (
-                f"{cls.namespace}.{TunableParamsMeta._process_name(name)}"
-                if cls.namespace
-                else TunableParamsMeta._process_name(name)  # for cases like main.advanced
+                f"{parent_namespace}.{TunableParamsMeta._compose_namespace(name)}"
+                if parent_namespace
+                else TunableParamsMeta._compose_namespace(name)  # for cases like main.advanced
             )
             return value
 
-        if isinstance(value, FieldInfo):
-            declaring_cls = TunableParamsMeta._declaring_class(cls, name)
-            typ = Any if declaring_cls is None else TunableParamsMeta._resolve_type(name, declaring_cls)
-            if value.description is None:
-                value.description = _get_description(cls, name)
-            return TunableParamData(value, typ, cls.namespace, name)
+        declaring_cls = TunableParamsMeta._declaring_class(cls, name)
+        if declaring_cls is not None:
+            fields = type.__getattribute__(declaring_cls, "__tunable_fields__")
+            if name in fields:
+                field_data = fields[name]
+                typ = TunableParamsMeta._resolve_type(name, declaring_cls)
+                return TunableParamData(field_data.value, typ, type.__getattribute__(cls, "namespace"), name)
 
         return value
 
@@ -293,21 +321,18 @@ def tunable(
             # Handle static methods called from instances
             if isinstance(fn, staticmethod) and args[0].__class__.__name__ == fn.__qualname__.split(".")[0]:
                 args = args[1:]
+            injected = {}
             cfg = _active_cfg.get()
             if cfg is not None:
-                filtered = {}
                 for ns, ns_vars in namespaces.items():
                     section = _resolve_nested_section(cfg, ns)
                     data = section if isinstance(section, dict) else section.model_dump()
-                    filtered.update({
-                        # Get the tunable arguments from the config and retrieve the original name
-                        k: data[global_names.get(k, k)]
-                        for k in ns_vars
-                        if global_names.get(k, k) in data and k not in kwargs
+                    injected.update({
+                        name: data[global_names.get(name, name)]
+                        for name in ns_vars
+                        if global_names.get(name, name) in data and name not in kwargs
                     })
-                call_kwargs = {**filtered, **kwargs}
-            else:
-                call_kwargs = kwargs
+            call_kwargs = {**injected, **kwargs}
 
             bound = sig.bind_partial(*args, **call_kwargs)
             for name in tunable_param_defaults:
